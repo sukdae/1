@@ -36,7 +36,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .turnbar { height: 3px; background: var(--panel2); border-radius: 2px; overflow: hidden; margin-top: 3px; }
 .turnbar i { display: block; height: 100%; background: var(--amber); }
 .ghost { background: rgba(14,16,19,.7); border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 2px 9px; font-size: .78rem; }
-.stats { display: grid; grid-template-columns: 1.2fr repeat(4, 1fr); gap: 6px; background: rgba(14,16,19,.72); border: 1px solid rgba(201,163,90,.25); border-radius: 6px; padding: 6px 10px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr repeat(4, 1fr); gap: 6px; background: rgba(14,16,19,.72); border: 1px solid rgba(201,163,90,.25); border-radius: 6px; padding: 6px 10px; }
 .rels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: rgba(14,16,19,.55); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
 .st { min-width: 0; position: relative; }
 .st .k { display: block; font-size: .66rem; color: var(--dim); white-space: nowrap; }
@@ -50,12 +50,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .gl { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
 .gl.off { opacity: .2; filter: none; }
 .g-power { color: #e2b85c; } .g-army { color: #b9c2c0; } .g-gold { color: #c9944a; } .g-nobles { color: #8fb79f; }
-.g-people { color: #d9b25a; } .g-buddha { color: #e6a9b4; } .g-yang { color: #d98a5b; } .g-wa { color: #8fb0d6; }
+.g-people { color: #d9b25a; } .g-food { color: #e8d9a8; } .g-buddha { color: #e6a9b4; } .g-yang { color: #d98a5b; } .g-wa { color: #8fb0d6; }
 .coin { width: 15px; height: 15px; color: #c9944a; flex: 0 0 auto; }
 
 /* 가운데: 지도 */
 .mapwrap { position: relative; min-height: 0; overflow: hidden; }
-#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.zoom { position: absolute; right: 6px; top: 6px; display: grid; gap: 4px; }
+.zoom .ghost { width: 34px; height: 34px; padding: 0; font-size: 1rem; color: var(--paper); }
 .tile { cursor: pointer; }
 .tile:hover .face { filter: brightness(1.15); }
 .sel { fill: none; stroke: #f3d27a; stroke-width: 2; pointer-events: none; }
@@ -124,17 +126,29 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .logo b { display: none; }
   .year { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .74rem; }
   .year b { font-size: .9rem; }
-  .stats { grid-template-columns: 1.1fr repeat(4, 1fr); padding: 5px 8px; gap: 4px; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 5px 8px; gap: 4px; }
   .st .k { font-size: .6rem; }
   .tab { font-size: .8rem; }
 }
+/* 휴대폰: 수치 칸을 납작하게 해서 지도를 넓게 */
+@media (max-width: 640px) {
+  .top { gap: 4px; padding-top: 4px; }
+  .stats, .rels { padding: 4px 8px; }
+  .st .k { font-size: .6rem; }
+  .st .n { font-size: .9rem; }
+  .nb { height: 2px; }
+  .bottom { padding-bottom: 4px; }
+  .tab, .next { padding: 6px 4px; }
+}
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 4px; } }
+.cap { color: var(--dim); font-size: .66rem; }
 /* 아주 좁은 화면 */
 @media (max-width: 400px) {
   .yearbar { gap: 6px; }
   .ghost { padding: 2px 6px; font-size: .7rem; }
   .st .gold-n { white-space: nowrap; font-size: .82rem; }
   .st .gold-n small { display: none; }
-  .stats { grid-template-columns: 1fr repeat(4, 1fr); padding: 5px 6px; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 5px 6px; }
 }
 .warn { font-size: .8rem; color: #ffb4a3; background: rgba(196,85,60,.15); border-radius: 4px; padding: 4px 8px; }
 .bonus { display: grid; gap: 2px; font-size: .78rem; color: #f3d27a; }
@@ -175,6 +189,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
     <svg id="map" aria-label="웅진 지도"></svg>
     <div class="hint" id="hint"></div>
     <div class="log" id="log"></div>
+    <div class="zoom"><button class="ghost" id="z-in" type="button" aria-label="확대">＋</button><button class="ghost" id="z-out" type="button" aria-label="축소">－</button><button class="ghost" id="z-home" type="button" aria-label="왕궁으로">⌂</button></div>
   </div>
   <div class="bottom">
     <div class="sheet" id="sheet" hidden></div>
@@ -199,14 +214,18 @@ const N = 11;                      // 지도 11×11
 const TW = 64, TH = 32;            // 마름모 타일 크기
 const STATS = ["power", "army", "nobles", "people"];
 const RELS = ["yang", "wa", "buddha"];
-const NAME = { gold: "재정", power: "왕권", army: "군사력", nobles: "귀족 협력", people: "민심", yang: "양나라 우호", wa: "왜 우호", buddha: "불심" };
+const NAME = { food: "식량", gold: "재정", power: "왕권", army: "군사력", nobles: "귀족 협력", people: "민심", yang: "양나라 우호", wa: "왜 우호", buddha: "불심" };
 
-/* 지형: 금강은 남쪽 가장자리, 공산성 언덕은 왕궁 북서쪽 */
+/* 지형: 금강은 남쪽 가장자리, 공산성 언덕은 왕궁 북서쪽. 북쪽(안개 땅)은 산성 지대라 언덕이 많고, 맨 끝 줄은 산이다 */
+const NORTH_HILL = new Set(["2,5", "5,2", "3,3", "2,2", "7,2", "2,8", "8,2", "3,6"]);
 function terrain(x, y) {
   if (y === N - 1 || (x === N - 1 && y >= 6)) return "river";
+  if (x === 0 || y === 0) return "mountain";
   if ((x === 4 && y === 4) || (x === 4 && y === 5) || (x === 5 && y === 4)) return "hill";
+  if (x === 1 || y === 1 || NORTH_HILL.has(x + "," + y)) return "hill";
   return "land";
 }
+const GROUND_H = { hill: 10, mountain: 16, river: 0, land: 4 };
 /* 처음엔 금강가 웅진 둘레만. 북쪽 성을 되찾을 때마다 북쪽(위)으로 땅이 넓어진다 */
 const RING = [4, 3, 2, 0];
 const opened = (x, y) => x >= RING[S.ring] && y >= RING[S.ring];
@@ -214,20 +233,21 @@ const nearRiver = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =
 
 /* ================= 건물 ================= */
 const B = {
-  paddy:   { name: "논", cost: 12, on: "land", eff: { gold: 3, people: 1 }, desc: "곡식을 거둬 나라 살림과 민심을 채운다. 금강 옆에 지으면 더 많이 거둔다." },
+  paddy:   { name: "논", cost: 12, on: "land", eff: { food: 5, gold: 2, people: 1 }, desc: "식량을 거둔다. 금강 옆에 지으면 더 많이 거둔다. 창고와 제방을 들일 수 있다." },
   levee:   { name: "제방", cost: 20, on: "land", river: true, eff: { people: 1 }, desc: "강가에만 지을 수 있다. 큰물을 막고, 바로 옆 논이 더 거두게 한다." },
   granary: { name: "창고", cost: 20, on: "land", eff: { gold: 1, people: 1 }, desc: "흉년이 들면 창고를 열어 백성을 먹인다." },
   manor:   { name: "귀족 저택", cost: 30, on: "land", eff: { nobles: 3, gold: 2, power: -1 }, desc: "대성8족을 웅진에 붙잡아 둔다." },
-  barracks:{ name: "군영", cost: 35, on: "land", eff: { army: 4, gold: -2 }, desc: "군사를 기른다. 해마다 재정이 든다." },
-  wall:    { name: "성벽", cost: 30, on: "any", eff: { army: 1 }, desc: "고구려·말갈의 침입을 막는다. 언덕에도 쌓을 수 있다." },
-  temple:  { name: "절", cost: 30, on: "land", eff: { people: 2, nobles: 1 }, desc: "누구의 조상도 아닌 부처 앞에 모두가 함께 절한다. 불심이 쌓인다." },
+  barracks:{ name: "군영", cost: 35, on: "land", hill: true, eff: { army: 4, gold: -2, people: -2 }, desc: "군사를 기른다. 해마다 재정이 들고, 장정을 끌어가니 백성은 싫어한다." },
+  wall:    { name: "망루", cost: 30, on: "any", eff: { army: 1 }, desc: "고구려·말갈의 침입을 지켜본다. 언덕과 산에도 세울 수 있다. 망루를 맞닿게 세우면 그 사이에 성벽이 쌓이고 방어가 크게 오른다." },
+  temple:  { name: "절", cost: 30, on: "land", hill: true, eff: { people: 2, nobles: 1 }, desc: "누구의 조상도 아닌 부처 앞에 모두가 함께 절한다. 불심이 쌓인다." },
   harbor:  { name: "나루", cost: 40, on: "land", river: true, eff: { gold: 2, yang: 2, wa: 2 }, desc: "강가에만 지을 수 있다. 양나라와 왜를 오가는 배가 닿는다. 지은 나루를 누르면 교역선을 보낼 수 있다." },
   kiln:    { name: "벽돌 가마", cost: 50, on: "land", need: () => S.yang >= 40, needText: "양나라 우호가 쌓여야 장인이 온다", eff: { yang: 1 }, desc: "남조식 벽돌을 굽는다. 이 가마가 있어야 왕릉을 벽돌로 쌓을 수 있다." },
-  smith:   { name: "금공방", cost: 50, on: "land", need: () => S.gold >= 0, eff: { power: 2, gold: -1 }, desc: "다리(多利) 같은 금속 장인들이 금관 꾸미개와 장신구를 만든다." },
+  smith:   { name: "금공방", cost: 50, on: "land", need: () => S.hired.includes("dari"), needText: "장인 다리를 먼저 등용해야 한다", eff: { power: 2, gold: -1 }, desc: "장인 다리를 등용해야 지을 수 있다. 다리(多利) 같은 금속 장인들이 금관 꾸미개와 장신구를 만든다." },
+  house:   { name: "민가", cost: 15, on: "land", hill: true, eff: { people: 2, gold: 1 }, desc: "백성들이 사는 초가 마을. 민심과 세금이 늘고, 논과 가까우면 더 좋다." },
   road:    { name: "도로", cost: 3, on: "any", flat: true, eff: {}, desc: "건물은 왕궁과 이어진 도로에 맞닿아 있어야 일한다. 사람들이 이 길을 오간다." },
   palace:  { name: "왕궁", cost: 0, fixed: true, eff: { power: 1, gold: 2 }, desc: "웅진 왕궁. 옮기거나 허물 수 없다." }
 };
-const BUILD_LIST = ["road", "paddy", "levee", "granary", "manor", "barracks", "wall", "temple", "harbor", "kiln", "smith"];
+const BUILD_LIST = ["road", "house", "paddy", "manor", "barracks", "wall", "temple", "harbor", "kiln", "smith"];
 const upCost = (b, lv) => Math.round(B[b].cost * (lv + 1));
 /* 궁 주변(왕궁에서 두 칸 안)에 지으면 더 좋아지는 건물 */
 const PALACE = [5, 5];
@@ -238,13 +258,13 @@ const COURT = {
   temple:   { eff: { nobles: 1, power: 1 }, why: "왕실 원찰" },
   barracks: { eff: { power: 1 }, why: "왕궁 호위군" },
   wall:     { eff: { army: 2 }, why: "궁성 방비" },
-  granary:  { eff: { gold: 1 }, why: "나라 창고" }
+  house:    { eff: { people: 1 }, why: "왕궁 아래 마을" }
 };
 /* 나란히(맞닿게) 지으면 생기는 짝 효과 */
 const COMBO = [
-  { a: "paddy", b: "levee", eff: { gold: 1, people: 1 }, why: "제방이 지키는 논" },
-  { a: "paddy", b: "granary", eff: { people: 1 }, why: "거둔 곡식을 바로 창고에" },
-  { a: "barracks", b: "wall", eff: { army: 2 }, why: "성벽을 지키는 군영" },
+  { a: "house", b: "paddy", eff: { people: 1 }, why: "들일 나가기 가까운 마을" },
+  { a: "house", b: "temple", eff: { people: 1 }, why: "절 앞 마을" },
+  { a: "barracks", b: "wall", eff: { army: 2 }, why: "망루를 지키는 군영" },
   { a: "temple", b: "manor", eff: { nobles: 1 }, why: "귀족이 시주하는 절" },
   { a: "kiln", b: "harbor", eff: { yang: 1 }, why: "남조 장인이 오가는 가마" },
   { a: "smith", b: "kiln", eff: { gold: 1 }, why: "불을 함께 쓰는 공방" },
@@ -254,7 +274,7 @@ function bonuses(x, y) {
   const t = S.map[y][x]; if (!t) return [];
   const list = [];
   if (nearPalace(x, y) && COURT[t.b]) list.push({ why: "궁 주변 · " + COURT[t.b].why, eff: COURT[t.b].eff });
-  if (t.b === "paddy" && nearRiver(x, y)) list.push({ why: "금강 물을 대는 논", eff: { gold: 2 } });
+  if (t.b === "paddy" && nearRiver(x, y)) list.push({ why: "금강 물을 대는 논", eff: { food: 2 } });
   const seen = new Set();
   for (const n of around(x, y)) {
     if (!n) continue;
@@ -264,7 +284,13 @@ function bonuses(x, y) {
   }
   return list;
 }
-/* 도로망: 왕궁에서 도로를 따라 닿는 칸들. 성벽·제방은 도로 없이도 제 몫을 한다 */
+/* 논에 덧붙이는 시설: 창고와 제방은 따로 짓지 않고 논 안에 들인다 */
+const ADDON = {
+  granary: { name: "창고", cost: 20, eff: { people: 1 }, desc: "식량을 40 더 쌓아 둘 수 있다. 흉년이 들면 창고를 열 수 있다." },
+  levee:   { name: "제방", cost: 20, river: true, eff: { food: 2, people: 1 }, desc: "강가 논에만. 큰물을 막고 논을 지킨다." }
+};
+const countAddon = a => { REACH = null; let n = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t?.b === "paddy" && t[a] && works(x, y)) n++; } return n; };
+/* 도로망: 왕궁에서 도로를 따라 닿는 칸들. 망루·제방은 도로 없이도 제 몫을 한다 */
 const NOROAD = new Set(["palace", "road", "wall", "levee"]);
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 function reach() {
@@ -293,35 +319,44 @@ function yieldOf(x, y) {
   if (!works(x, y)) { for (const k in b.eff) if (b.eff[k] < 0) out[k] = b.eff[k] * t.lv; return out; }   // 끊긴 건물은 유지비만 든다
   for (const k in b.eff) out[k] = b.eff[k] * t.lv;
   for (const bo of bonuses(x, y)) for (const k in bo.eff) out[k] = (out[k] || 0) + bo.eff[k];   // 보너스는 단계와 상관없이 한 번
+  if (t.b === "paddy") for (const a in ADDON) if (t[a]) for (const k in ADDON[a].eff) out[k] = (out[k] || 0) + ADDON[a].eff[k];
   return out;
 }
-const around = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => S.map[y + dy]?.[x + dx]);
+const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const around = (x, y) => N8.map(([dx, dy]) => S.map[y + dy]?.[x + dx]);
+const FREE = new Set(["road", "house", "palace"]);   // 민가 수에 묶이지 않는 것
+const used = () => S.map.flat().filter(t => t && !FREE.has(t.b)).length;
+const room = () => tiles("house") * 3;
+const tiles = b => S.map.flat().filter(t => t?.b === b).length;
 const count = b => { REACH = null; let n = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t?.b === b && works(x, y)) n += t.lv; } return n; };
 function income() {
   REACH = null;
   const sum = {};
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const o = yieldOf(x, y); for (const k in o) sum[k] = (sum[k] || 0) + o[k]; }
+  if (S.flags.danyangi) { sum.wa = (sum.wa || 0) + 2; sum.nobles = (sum.nobles || 0) + 1; }   // 왜에 건너간 단양이
   for (const p of S.hired) { const P = PEOPLE[p]; for (const k in P.eff) sum[k] = (sum[k] || 0) + P.eff[k]; sum.gold = (sum.gold || 0) - P.upkeep; }
   // 해마다 저절로 줄어드는 것: 백성은 늘 살피지 않으면 떠나고, 귀족은 늘 견제해야 한다
+  // 먹는 입: 기본 3, 민가 한 단계마다 2, 군사 15마다 1
+  let mouths = 3; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t?.b === "house") mouths += 2 * t.lv; }
+  sum.food = (sum.food || 0) - mouths - Math.floor(S.army / 15);
   sum.people = (sum.people || 0) - 3; sum.nobles = (sum.nobles || 0) - 2; sum.army = (sum.army || 0) - 3; sum.power = (sum.power || 0) - 2;
   // 태평성대: 민심이 가득 차면 생산이 1.5배, 백성이 떠나지 않는다
   if (S.peace) {
-    for (const k of ["gold", "army", "yang", "wa", "nobles", "power"]) if (sum[k] > 0) sum[k] = Math.round(sum[k] * 1.3);
-    sum.people = Math.max(sum.people, 0);
+    for (const k of ["food", "gold", "army", "yang", "wa", "nobles", "power"]) if (sum[k] > 0) sum[k] = Math.round(sum[k] * 1.3);
+    if (sum.people > 0) sum.people = Math.floor(sum.people / 2);   // 태평성대에는 민심이 절반만 오른다
   }
   return sum;
 }
 
 /* ================= 인재 ================= */
 const PEOPLE = {
-  haemyeong: { name: "해명", role: "장수", han: "解", from: 501, cost: 15, upkeep: 2, eff: { army: 2 }, war: 10, desc: "해씨 가문의 한솔. 백가의 반란을 토벌했다." },
-  uyeong:    { name: "우영", role: "달솔", han: "優", from: 501, cost: 20, upkeep: 2, eff: { army: 1 }, war: 15, desc: "군사 5천으로 고구려 수곡성을 친 장수." },
-  jinro:     { name: "진로", role: "장수", img: "jinro", from: 501, cost: 30, upkeep: 3, eff: { army: 3, nobles: 1 }, war: 15, desc: "진씨 가문의 맹장. 진씨가 힘을 보태면 귀족도 따른다." },
+  haemyeong: { name: "해명", role: "장수", han: "解", img: "haemyeong", face: [.46, .28], from: 501, cost: 15, upkeep: 2, eff: { army: 2 }, war: 10, req: () => tiles("barracks") >= 1, reqText: "군영 1채가 있어야 한다", desc: "해씨 가문의 한솔. 백가의 반란을 토벌했다." },
+  uyeong:    { name: "우영", role: "달솔", han: "優", img: "uyeong", face: [.55, .25], from: 501, cost: 20, upkeep: 2, eff: { army: 1 }, war: 15, desc: "군사 5천으로 고구려 수곡성을 친 장수." },
+  jinro:     { name: "진로", role: "장수", img: "jinro", from: 501, cost: 30, upkeep: 3, eff: { army: 3, nobles: 1 }, war: 15, req: () => tiles("wall") >= 3, reqText: "망루 3채가 있어야 한다", desc: "진씨 가문의 맹장. 진씨가 힘을 보태면 귀족도 따른다." },
   sa:        { name: "사씨 재상", role: "재상", han: "沙", from: 501, cost: 25, upkeep: 2, eff: { gold: 4, nobles: 1 }, war: 0, desc: "대성8족의 하나. 나라 살림을 맡는다." },
-  monk:      { name: "늙은 승려", role: "승려", img: "monk", from: 503, cost: 15, upkeep: 1, eff: { people: 2 }, war: 0, buddha: 1, desc: "한성에서 내려온 승려. 금강가 초막에서 백성을 돌본다." },
-  dari:      { name: "장인 다리", role: "금공", han: "多", from: 505, cost: 20, upkeep: 2, eff: { power: 1 }, war: 0, desc: "무령왕릉 왕비 팔찌에 이름을 남긴 장인." },
-  myeongnong:{ name: "명농", role: "태자", img: "myeongnong", from: 512, cost: 0, upkeep: 2, eff: { power: 2, nobles: 1 }, war: 5, desc: "왕의 아들, 훗날의 성왕. 아버지를 묻을 사람." },
-  danyangi:  { name: "단양이", role: "오경박사", han: "段", from: 513, cost: 0, upkeep: 1, eff: { wa: 2, nobles: 1 }, war: 0, special: true, desc: "유교 경전에 밝은 오경박사. 513년 왜에 건너간 뒤로 해마다 왜와의 우호를 지켜 준다." }
+  monk:      { name: "늙은 승려", role: "승려", img: "monk", from: 503, cost: 15, upkeep: 1, eff: { people: 2 }, war: 0, buddha: 1, req: () => tiles("temple") >= 1, reqText: "절이 있어야 한다", desc: "한성에서 내려온 승려. 금강가 초막에서 백성을 돌본다." },
+  dari:      { name: "장인 다리", role: "금공", han: "多", img: "dari", face: [.43, .37], from: 505, cost: 20, upkeep: 2, eff: { power: 1 }, war: 0, desc: "무령왕릉 왕비 팔찌에 이름을 남긴 장인." },
+  myeongnong:{ name: "명농", role: "태자", img: "myeongnong", from: 512, cost: 0, upkeep: 2, eff: { power: 2, nobles: 1 }, war: 5, desc: "왕의 아들, 훗날의 성왕. 아버지를 묻을 사람." }
 };
 
 /* ================= 원정 ================= */
@@ -331,6 +366,21 @@ const TARGETS = {
   wonsan: { name: "원산성", from: 510, str: 70, reward: { power: 8, gold: 40, people: 5 }, desc: "512년 고구려에 깨진 성. 다시 쌓으면 북쪽 길이 이어진다." },
   hanseong: { name: "한성 옛 땅", from: 518, str: 90, ring: 3, reward: { power: 15, people: 10 }, desc: "475년에 빼앗긴 옛 도읍. 무령왕은 523년 봄 몸소 한성에 다녀왔다." }
 };
+/* 출정할 때마다 드는 것: 장정을 뽑고(민심), 귀족 사병을 빌리고(귀족), 왕이 위신을 건다(왕권) */
+const WAR_COST = { gold: -10, food: -8, army: -10, power: -3, nobles: -4, people: -5 };
+const warReady = () => Object.keys(WAR_COST).every(k => k === "food" ? S.food >= -WAR_COST.food : S[k] > -WAR_COST[k]);
+/* 방어: 망루 한 단계마다 6, 맞닿은 망루 사이에 쌓인 성벽 한 줄마다 8 */
+const TOWER_DEF = 6, LINK_DEF = 8;
+function wallLinks() {
+  REACH = null; let n = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (S.map[y][x]?.b !== "wall") continue;
+    if (S.map[y][x + 1]?.b === "wall") n++;
+    if (S.map[y + 1]?.[x]?.b === "wall") n++;
+  }
+  return n;
+}
+const defense = () => S.army + count("wall") * TOWER_DEF + wallLinks() * LINK_DEF;
 const warPower = () => S.army + S.hired.reduce((a, p) => a + PEOPLE[p].war, 0) + count("wall") * 2;
 const chance = str => Math.max(.05, Math.min(.95, 1 / (1 + Math.exp(-(warPower() - str) / 9))));
 
@@ -341,15 +391,18 @@ function fresh() {
   map[5][5] = { b: "palace", lv: 1 };
   for (const [x, y] of [[5, 6], [5, 7], [5, 8], [6, 8]]) map[y][x] = { b: "road", lv: 1 };
   map[9][6] = { b: "paddy", lv: 1 };
-  return { turn: 0, gold: 90, power: 45, army: 35, nobles: 50, people: 50, yang: 15, wa: 30, buddhaX: 0,
+  map[7][6] = { b: "house", lv: 1 };
+  return { turn: 0, food: 40, gold: 90, power: 45, army: 35, nobles: 50, people: 50, yang: 15, wa: 30, buddhaX: 0,
     map, ring: 0, hired: [], won: [], warDone: false, liang: false, flags: {}, log: "", seen: [], last: {} };
 }
 const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
 const buddha = () => count("temple") + S.hired.filter(p => PEOPLE[p].buddha).length + S.buddhaX;
 const year = () => FIRST + S.turn;
+const foodCap = () => 40 + 40 * countAddon("granary");
 function apply(eff) {
   const d = {};
   for (const k in eff) {
+    if (k === "food") { const before = S.food; S.food = Math.max(0, Math.min(foodCap(), Math.round(S.food + eff[k]))); d.food = S.food - before; continue; }
     if (k === "buddha") { S.buddhaX += eff[k]; d.buddha = eff[k]; continue; }
     const before = S[k];
     S[k] = k === "gold" ? Math.max(0, Math.round(S[k] + eff[k])) : clamp(S[k] + eff[k]);
@@ -358,7 +411,7 @@ function apply(eff) {
   return d;
 }
 function save() { try { localStorage.setItem("sama-tycoon", JSON.stringify(S)); } catch {} }
-function load() { try { const v = JSON.parse(localStorage.getItem("sama-tycoon") || "null"); return v && v.map && v.map.length === N ? v : null; } catch { return null; } }   // 예전 9×9 저장은 버린다
+function load() { try { const v = JSON.parse(localStorage.getItem("sama-tycoon") || "null"); if (!v || !v.map || v.map.length !== N) return null; v.hired = (v.hired || []).filter(k => PEOPLE[k]); const f = fresh(); for (const k in f) if (v[k] === undefined) v[k] = f[k]; return v; } catch { return null; } }   // 예전 9×9 저장은 버린다
 
 /* ================= 그림 도구 ================= */
 const $ = id => document.getElementById(id);
@@ -378,6 +431,7 @@ const GLYPH = {
   yang: '<path d="M.8 6.6Q8 2.6 15.2 6.6l-1.4 1.3H2.2z"/><rect x="3.6" y="8.6" width="8.8" height="4.2"/><rect x="2" y="13.2" width="12" height="1.6" rx=".4"/>',
   wa: '<path d="M1.2 10.4h13.6l-2.2 3.4H3.4z"/><rect x="7.3" y="1.6" width="1.4" height="8.8"/><path d="M9 2.4l4.6 6.2H9z"/><path d="M7 3.6 3.2 8.6H7z" opacity=".75"/>',
   people: '<path d="M7.3 15V7.5C7.3 5 5.5 3.4 3.5 2.8c.8 1.9 1.9 3.4 3.8 4.7M8.7 15V7.5c0-2.5 1.8-4.1 3.8-4.7-.8 1.9-1.9 3.4-3.8 4.7M7.3 15h1.4V5.2c0-1.6-.3-3-.7-4.2-.4 1.2-.7 2.6-.7 4.2z"/><rect x="5" y="10.6" width="6" height="1.4" rx=".5"/>',
+  food: '<path d="M1.5 7.5h13c0 3.6-2.9 6-6.5 6s-6.5-2.4-6.5-6z"/><path d="M3 7c.4-2.6 2.6-4.2 5-4.2s4.6 1.6 5 4.2z" opacity=".55"/><rect x="5" y="13.3" width="6" height="1.4" rx=".5"/>',
   buddha: '<path d="M8 2c1.4 1.6 2 3.4 2 5.2 0 2-1 3.5-2 4.3-1-.8-2-2.3-2-4.3C6 5.4 6.6 3.6 8 2z"/><path d="M2 6.5c2.3.2 4.2 1.4 5.2 4.6-2.6.3-4.6-1-5.2-4.6zM14 6.5c-2.3.2-4.2 1.4-5.2 4.6 2.6.3 4.6-1 5.2-4.6z"/><path d="M3 12.5h10c-1 1.2-2.8 2-5 2s-4-.8-5-2z"/>'
 };
 const glyph = (k, on, cls = "gl") => `<svg class="${cls} g-${k}${on ? "" : " off"}" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">${GLYPH[k]}</svg>`;
@@ -397,7 +451,7 @@ function paintTop() {
   const t = Math.min(S.turn, TURNS - 1);
   $("year").innerHTML = `<b>무령왕 ${t + 1}년</b> · ${FIRST + t}년 · ${t + 1}/${TURNS}턴<div class="turnbar"><i style="width:${(t + 1) / TURNS * 100}%"></i></div>`;
   const inc = income();
-  $("stats").innerHTML = `<div class="st"><span class="k">재정</span><span class="v">${glyph("gold", true, "coin")}<span class="gold-n">${S.gold}<small>${inc.gold >= 0 ? "+" : ""}${inc.gold || 0}/년</small></span></span>${arrow(S.last.gold)}</div>`
+  $("stats").innerHTML = `<div class="st"><span class="k">${glyph("food", true, "mini")}식량</span><span class="v"><b class="n">${S.food}</b><small class="cap">/${foodCap()}</small>${inc.food ? `<small class="${inc.food > 0 ? "up" : "down"}">${inc.food > 0 ? "+" : ""}${inc.food}</small>` : ""}</span><span class="nb"><i class="g-food" style="width:${S.food / foodCap() * 100}%"></i></span>${arrow(S.last.food)}</div><div class="st"><span class="k">재정</span><span class="v">${glyph("gold", true, "coin")}<span class="gold-n">${S.gold}<small>${inc.gold >= 0 ? "+" : ""}${inc.gold || 0}/년</small></span></span>${arrow(S.last.gold)}</div>`
     + STATS.map(k => num(k, S[k], inc[k])).join("");
   $("rels").innerHTML = RELS.map(k => k === "buddha" ? num(k, buddha(), 0, false) : num(k, S[k], inc[k])).join("");
   $("year").innerHTML += S.peace ? `<span class="peace">태평성대</span>` : "";
@@ -422,9 +476,23 @@ const stars = (cx, cy, lv) => lv > 1 ? `<text x="${cx}" y="${cy + 15}" font-size
 /* 나노바나나 도트 그림 (assets/b_*.png, 너비 256으로 자른 것). 그림이 있으면 그것을, 없으면 아래 도형을 그린다 */
 // [그림 높이, 왼쪽·오른쪽 꼭짓점 높이] — 너비 256 기준. 꼭짓점을 타일 가운데 선에 맞춘다
 const SPR = { barracks: [203, 125], granary: [257, 178], harbor: [200, 122], kiln: [216, 148], levee: [172, 90], manor: [180, 103],
-  paddy: [162, 77], palace: [220, 144], smith: [236, 165], temple: [236, 164], wall: [262, 179] };
+  house: [189, 98], paddy: [162, 77], palace: [220, 144], smith: [236, 165], temple: [236, 164], wall: [262, 179] };
 const SX = TW / 256, SY = (TH / 2) / 74;   // 나노바나나 타일의 마름모는 너비 256에 반높이 74
-Object.keys(SPR).forEach(k => { const im = new Image(); im.src = `assets/b_${k}.png`; });
+Object.keys(SPR).concat(["wall_x", "wall_y", "tower"]).forEach(k => { const im = new Image(); im.src = `assets/b_${k}.png`; });
+function drawAddons(x, y, t, cx, cy) {
+  let g = "";
+  if (t.levee) for (const [dx, dy] of N4) {
+    if (terrain(x + dx, y + dy) !== "river") continue;
+    // 강 쪽 모서리를 따라 흙둑과 가마니
+    const d = diamond(cx, cy, 1), edge = dx === 1 ? [d[1], d[2]] : dy === 1 ? [d[2], d[3]] : dx === -1 ? [d[3], d[0]] : [d[0], d[1]];
+    const [a, b] = edge, up = 7;
+    g += `<polygon points="${a[0]},${a[1]} ${b[0]},${b[1]} ${b[0]},${b[1] - up} ${a[0]},${a[1] - up}" fill="#8a6a3e" stroke="#5a4329" stroke-width=".6"/>`
+      + `<polygon points="${a[0]},${a[1] - up} ${b[0]},${b[1] - up} ${(a[0] + b[0]) / 2 + (cx - (a[0] + b[0]) / 2) * .18},${(a[1] + b[1]) / 2 - up + (cy - (a[1] + b[1]) / 2) * .18}" fill="#7e9b4f"/>`;
+    for (let i = 1; i < 4; i++) { const f = i / 4; g += `<ellipse cx="${a[0] + (b[0] - a[0]) * f}" cy="${a[1] + (b[1] - a[1]) * f - 2}" rx="3.2" ry="1.8" fill="#d8c79a" stroke="#8a7a52" stroke-width=".4"/>`; }
+  }
+  if (t.granary) g += `<image href="assets/b_granary.png" x="${cx + 4}" y="${cy - 30}" width="24" height="${24 * 257 / 256}"/>`;
+  return g;
+}
 function drawBuilding(b, cx, cy, lv) {
   if (SPR[b]) {
     const [H, ly] = SPR[b];
@@ -432,6 +500,11 @@ function drawBuilding(b, cx, cy, lv) {
   }
   const h = lv - 1;
   switch (b) {
+    case "house": {
+      const hut = (x, y, s) => box(x, y, s, 7, "#d8c7a0", "#b9a57c", "#9e8c66") + roof(x, y, s, 7, 7, "#d9b25a", "#b8923e");
+      return hut(cx - 9, cy + 2, .32) + hut(cx + 9, cy + 2, .32) + hut(cx, cy - 6, .36) + (lv > 1 ? hut(cx, cy + 8, .3) : "")
+        + `<ellipse cx="${cx + 14}" cy="${cy - 4}" rx="2.6" ry="1.6" fill="#6b4a2e"/>`;
+    }
     case "paddy": {
       const d = diamond(cx, cy, .86, 1);
       let l = ""; for (let i = 1; i < 4; i++) { const f = i / 4; l += `<line x1="${d[3][0] + (d[0][0] - d[3][0]) * f}" y1="${d[3][1] + (d[0][1] - d[3][1]) * f}" x2="${d[2][0] + (d[1][0] - d[2][0]) * f}" y2="${d[2][1] + (d[1][1] - d[2][1]) * f}" stroke="#a7c66a" stroke-width="1.2" opacity=".8"/>`; }
@@ -461,12 +534,42 @@ function drawBuilding(b, cx, cy, lv) {
 }
 /* 지형 도트 그림 (assets/t_*.png, 너비 256) */
 // 강 타일은 이어 붙이면 칸마다 둑이 생겨 끊겨 보이므로 언덕만 쓴다
-const TILE = { hill: [229, 87], land: [172, 74], fog: [188, 86] };
-const TFILE = { hill: "hill", land: "grass", fog: "fog" };
+const TILE = { hill: [229, 87], land: [172, 74], fog: [188, 86], mountain: [238, 128] };
+const TFILE = { hill: "hill", land: "grass", fog: "fog", mountain: "mountain" };
 Object.values(TFILE).forEach(k => { const im = new Image(); im.src = `assets/t_${k}.png`; });
 const tileImg = (f, [H, ly], cx, cy, cls = "") => `<image class="${cls}" href="assets/t_${f}.png" x="${cx - TW / 2}" y="${cy - ly * SY}" width="${TW}" height="${H * SY}" preserveAspectRatio="none"/>`;
 let sel = null;
-const groundH = (x, y) => terrain(x, y) === "hill" ? 10 : terrain(x, y) === "river" ? 0 : 4;
+const groundH = (x, y) => GROUND_H[terrain(x, y)];
+/* 망루: 맞닿은 망루 쪽으로 직선 성벽(b_wall_x ↘, b_wall_y ↙)을 반 칸씩 뻗어 잇는다. 가운데에는 늘 망루가 선다 */
+const WSPR = { x: [161, 75, 80.5], y: [151, 72, 75.5] };   // [그림 높이, 왼쪽 꼭짓점 높이, 마름모 반높이]
+const WALL_K = 1.5;   // 성벽을 칸보다 크게 그려 망루와 어울리게 한다. 가운데를 기준으로 키우므로 이웃 칸 성벽과 같은 선 위에서 겹쳐 이어진다
+function wallPiece(axis, cx, cy, side, id) {
+  const [H, ly, hh] = WSPR[axis], sy = (TH / 2) / hh, k = WALL_K;
+  // 그림 속 성벽은 칸의 대각선보다 앞(아래)쪽에 쌓여 있다. 대각선에 수직인 방향으로 밀어 망루 밑을 지나게 한다
+  const [ox, oy] = axis === "x" ? [20, -20 * hh / 128] : [-22, -22 * hh / 128];
+  const mid = cx;   // 반 칸으로 자르는 기준은 망루가 선 칸 가운데
+  cx += ox * SX * k; cy += oy * sy * k;
+  const clip = side ? `<clipPath id="${id}"><rect x="${side < 0 ? mid - TW * k : mid}" y="${cy - 120}" width="${TW * k}" height="200"/></clipPath>` : "";
+  return clip + `<image href="assets/b_wall_${axis}.png" x="${cx - TW * k / 2}" y="${cy - ly * sy * k}" width="${TW * k}" height="${H * sy * k}" preserveAspectRatio="none"${side ? ` clip-path="url(#${id})"` : ""}/>`;
+}
+/* 나무 망루: 지붕과 마루(b_tower.png, 너비 256 기준 109×86)를 기둥 네 개가 받친다 */
+function drawTower(cx, cy, z) {
+  const w = 109 * SX * z, h = 86 * SY * z, L = 13 * z, top = cy - L;
+  const post = (dx, dy) => `<line x1="${cx + dx}" y1="${top - 1 + dy * .3}" x2="${cx + dx}" y2="${cy + dy}" stroke="#4a3220" stroke-width="${2 * z}" stroke-linecap="round"/>`;
+  return post(-w * .28, -3) + post(w * .28, -3)
+    + `<line x1="${cx - w * .28}" y1="${cy - 4}" x2="${cx + w * .28}" y2="${top + 1}" stroke="#5c3f28" stroke-width="${1.1 * z}"/><line x1="${cx + w * .28}" y1="${cy - 4}" x2="${cx - w * .28}" y2="${top + 1}" stroke="#5c3f28" stroke-width="${1.1 * z}"/>`
+    + post(-w * .1, 3) + post(w * .14, 3)
+    + `<image href="assets/b_tower.png" x="${cx - w / 2}" y="${top - h + 2}" width="${w}" height="${h}" preserveAspectRatio="none"/>`;
+}
+function drawWall(x, y, cx, cy, lv) {
+  const nb = N4.filter(([dx, dy]) => S.map[y + dy]?.[x + dx]?.b === "wall");
+  if (!nb.length) return drawTower(cx, cy, 1.5 + (lv - 1) * .15);
+  // 화면에서 +x는 오른쪽 아래, +y는 왼쪽 아래
+  const half = ([dx, dy]) => wallPiece(dx ? "x" : "y", cx, cy, dx ? dx : -dy, `wc${x}_${y}_${dx}_${dy}`.replace(/-/g, "m"));
+  const back = nb.filter(([dx, dy]) => dx < 0 || dy < 0), front = nb.filter(([dx, dy]) => dx > 0 || dy > 0);
+  const tower = drawTower(cx, cy - 12, 1.35 + (lv - 1) * .15);
+  return back.map(half).join("") + tower + front.map(half).join("");
+}
 function drawRoad(x, y, cx, cy) {
   const ok = works(x, y), c = ok ? "#cfac72" : "#a39579", e = ok ? "#7d5f37" : "#625746";
   const segs = [];
@@ -482,7 +585,7 @@ function drawRoad(x, y, cx, cy) {
 }
 
 /* ================= 일꾼: 건물마다 사람이 생겨 도로를 오간다 ================= */
-const WORKER = { paddy: "farmer", granary: "farmer", barracks: "soldier", temple: "monk", manor: "noble", harbor: "merchant", smith: "artisan", kiln: "artisan", palace: "guard" };
+const WORKER = { house: "villager", paddy: "farmer", granary: "farmer", barracks: "soldier", temple: "monk", manor: "noble", harbor: "merchant", smith: "artisan", kiln: "artisan", palace: "guard" };
 const LOOK = {
   farmer:   { body: "#cdb88a", hat: c => `<polygon points="-4.5,-12.5 0,-16.5 4.5,-12.5" fill="#d9b25a" stroke="#8a6a2e" stroke-width=".5"/>` },
   soldier:  { body: "#7a2c22", hat: c => `<path d="M-2.8 -13 a2.8 2.6 0 0 1 5.6 0z" fill="#2c2c2c"/><path d="M0 -15.5 q2 -2 3 0" stroke="#c4553c" stroke-width="1.2" fill="none"/><line x1="4" y1="-2" x2="4" y2="-17" stroke="#5a4a3a" stroke-width=".8"/><path d="M3.3 -17 l.7 -2 l.7 2z" fill="#ccc"/>` },
@@ -490,6 +593,7 @@ const LOOK = {
   noble:    { body: "#5b2f6b", hat: c => `<rect x="-2.6" y="-15.2" width="5.2" height="3" rx=".8" fill="#1d1d1d"/><circle cx="0" cy="-15.6" r="1" fill="#ddd"/>` },
   merchant: { body: "#2f5a8a", hat: c => `<rect x="-6.5" y="-9" width="3.4" height="4" rx=".6" fill="#8b6b43"/>` },
   artisan:  { body: "#7a5634", hat: c => `<rect x="-2.8" y="-13.4" width="5.6" height="1.2" fill="#c9a35a"/>` },
+  villager: { body: "#e8e0cc", hat: c => `<rect x="-2.6" y="-13" width="5.2" height="1" fill="#6b4a2e"/>` },
   guard:    { body: "#9b3b2a", hat: c => `<path d="M-2.8 -13 a2.8 2.6 0 0 1 5.6 0z" fill="#3a2a1a"/><line x1="4" y1="-2" x2="4" y2="-17" stroke="#5a4a3a" stroke-width=".8"/>` }
 };
 function chibi(kind) {
@@ -563,42 +667,39 @@ if (typeof requestAnimationFrame === "function") requestAnimationFrame(tick);
 
 function paintMap() {
   REACH = null;
-  // 열린 땅과 한 칸 바깥까지만 보이게 확대한다
-  const lo = Math.max(0, RING[S.ring] - 1), hi = N - 1;
-  const [minx] = iso(lo, hi), [maxx] = iso(hi, lo), [, miny] = iso(lo, lo), [, maxy] = iso(hi, hi);
-  const vb = [minx - TW / 2 - 4, miny - TH / 2 - 44, maxx - minx + TW + 8, maxy - miny + TH + 56];
+  // 보이는 범위는 VIEW(확대·이동 상태)가 정한다
   let ground = "", things = "";
   const order = [];
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) order.push([x, y]);
   order.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
   for (const [x, y] of order) {
     const [cx, cy] = iso(x, y), ter = terrain(x, y), open = opened(x, y);
-    const top = ter === "river" ? ((x + y) % 2 ? "#2a8fb5" : "#2c97bd") : ter === "hill" ? "#6b5a43" : ((x + y) % 2 ? "#6f9a3c" : "#76a242");
-    const side = ter === "river" ? "#1d5d78" : ter === "hill" ? "#4c3f2f" : "#7a5634";
-    const h = ter === "hill" ? 10 : ter === "river" ? 0 : 4;
+    const top = ter === "river" ? ((x + y) % 2 ? "#2a8fb5" : "#2c97bd") : ter === "hill" || ter === "mountain" ? "#6b5a43" : ((x + y) % 2 ? "#6f9a3c" : "#76a242");
+    const side = ter === "river" ? "#1d5d78" : ter === "hill" || ter === "mountain" ? "#4c3f2f" : "#7a5634";
+    const h = GROUND_H[ter];
     const d = diamond(cx, cy, 1, h), g = diamond(cx, cy, 1);
     ground += `<g class="tile" data-x="${x}" data-y="${y}">`
       + (h ? `<polygon points="${P([g[3], g[2], d[2], d[3]])}" fill="${side}"/><polygon points="${P([g[2], g[1], d[1], d[2]])}" fill="${side}" opacity=".8"/>` : "")
       + `<polygon class="face" points="${P(d)}" fill="${top}" stroke="rgba(0,0,0,.25)"/>`
       + (ter === "river" ? `<path d="M${cx - 16} ${cy + 2} q8 -4 16 0 t16 0" stroke="#bfe8f5" stroke-width="1.6" fill="none" opacity=".7"/><path d="M${cx - 6} ${cy - 6} h8" stroke="#e8f8ff" stroke-width="1.4" opacity=".6"/>` : "")
-      + (open && TILE[ter] ? tileImg(TFILE[ter], TILE[ter], cx, cy - h) : "")
+      // 산에 망루를 세우면 봉우리 대신 언덕 그림 위에 올린다
+      + (open && TILE[ter] ? (ter === "mountain" && S.map[y][x] ? tileImg("hill", TILE.hill, cx, cy - h) : tileImg(TFILE[ter], TILE[ter], cx, cy - h)) : "")
       + (!open && ter !== "river" ? tileImg("fog", TILE.fog, cx, cy - h, "lockfog") : "")
       + (!open && ter === "river" ? `<polygon class="lockfog" points="${P(d)}" fill="#0b0d10" opacity=".6"/>` : "")
       + `</g>`;
     const t = S.map[y][x];
     if (t?.b === "road") ground += drawRoad(x, y, cx, cy - h);
-    else if (t) things += `<g pointer-events="none">${drawBuilding(t.b, cx, cy - h, t.lv)}${stars(cx, cy - h, t.lv)}${!works(x, y) ? `<g><circle cx="${cx}" cy="${cy - h - 26}" r="6" fill="#c4553c" stroke="#1a1206"/><text x="${cx}" y="${cy - h - 23}" font-size="9" font-weight="700" text-anchor="middle" fill="#fff">!</text></g>` : ""}</g>`;
+    else if (t) things += `<g pointer-events="none">${t.b === "wall" ? drawWall(x, y, cx, cy - h, t.lv) : drawBuilding(t.b, cx, cy - h, t.lv)}${t.b === "paddy" ? drawAddons(x, y, t, cx, cy - h) : ""}${stars(cx, cy - h, t.lv)}${!works(x, y) ? `<g><circle cx="${cx}" cy="${cy - h - 26}" r="6" fill="#c4553c" stroke="#1a1206"/><text x="${cx}" y="${cy - h - 23}" font-size="9" font-weight="700" text-anchor="middle" fill="#fff">!</text></g>` : ""}</g>`;
     if (open && ter !== "river" && nearPalace(x, y)) ground += `<polygon points="${P(d)}" fill="none" stroke="#e2b85c" stroke-width=".8" stroke-dasharray="2 3" opacity=".55" pointer-events="none"/>`;
     if (sel && sel[0] === x && sel[1] === y) things += `<polygon class="sel" points="${P(d)}"/>`;
   }
   // 북쪽 경계에 미개척 표시
-  $("map").setAttribute("viewBox", vb.join(" "));
-  $("map").setAttribute("preserveAspectRatio", "xMidYMid meet");
+  applyView();
   // 짝 효과가 난 건물끼리 금빛 점선으로 잇는다
   let links = "";
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const t = S.map[y][x]; if (!t) continue;
-    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+    for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
       const n = S.map[y + dy]?.[x + dx]; if (!n) continue;
       if (COMBO.some(c => (c.a === t.b && c.b === n.b) || (c.b === t.b && c.a === n.b))) {
         const [ax, ay] = iso(x, y), [bx, by] = iso(x + dx, y + dy);
@@ -610,6 +711,65 @@ function paintMap() {
   syncWalkers();
   $("map").querySelectorAll(".tile").forEach(el => el.onclick = () => tapTile(+el.dataset.x, +el.dataset.y));
 }
+
+/* ================= 지도 확대·이동 ================= */
+// VIEW: 화면 가운데의 지도 좌표(cx, cy)와 1px당 지도 단위(k). 휴대폰에서는 타일이 손가락 크기쯤 되게 확대한다
+let VIEW = null, viewRing = -1;
+function boxOf(lo) {
+  const hi = N - 1, [minx] = iso(lo, hi), [maxx] = iso(hi, lo), [, miny] = iso(lo, lo), [, maxy] = iso(hi, hi);
+  return { x: minx - TW / 2, y: miny - TH / 2 - 40, w: maxx - minx + TW, h: maxy - miny + TH + 50 };
+}
+function fitView() {
+  const el = $("map"), R = el.getBoundingClientRect(), W = R.width || 400, H = R.height || 400;
+  const b = boxOf(RING[S.ring]);
+  let k = Math.max(b.w / W, b.h / H);                // 열린 땅이 다 보이는 배율
+  if (W < 640) k = Math.min(k, 64 / 80);              // 휴대폰: 타일 한 칸이 화면에서 80px쯤
+  const [px, py] = iso(PALACE[0], PALACE[1]);
+  VIEW = { cx: W < 640 ? (px + (b.x + b.w / 2)) / 2 : b.x + b.w / 2, cy: W < 640 ? (py + (b.y + b.h / 2)) / 2 : b.y + b.h / 2, k };
+  viewRing = S.ring;
+}
+function applyView() {
+  const el = $("map"), R = el.getBoundingClientRect(), W = R.width || 400, H = R.height || 400;
+  if (!VIEW || viewRing !== S.ring) fitView();
+  const all = boxOf(0), kMax = Math.max(all.w / W, all.h / H) * 1.1, kMin = .35;
+  VIEW.k = Math.max(kMin, Math.min(kMax, VIEW.k));
+  VIEW.cx = Math.max(all.x, Math.min(all.x + all.w, VIEW.cx)); VIEW.cy = Math.max(all.y, Math.min(all.y + all.h, VIEW.cy));
+  el.setAttribute("viewBox", [VIEW.cx - W * VIEW.k / 2, VIEW.cy - H * VIEW.k / 2, W * VIEW.k, H * VIEW.k].join(" "));
+  el.setAttribute("preserveAspectRatio", "xMidYMid meet");
+}
+function zoomBy(f, px, py) {
+  const el = $("map"), r = el.getBoundingClientRect();
+  if (px === undefined) { px = r.width / 2; py = r.height / 2; }
+  const mx = VIEW.cx + (px - r.width / 2) * VIEW.k, my = VIEW.cy + (py - r.height / 2) * VIEW.k;
+  VIEW.k *= f;
+  VIEW.cx = mx - (px - r.width / 2) * VIEW.k; VIEW.cy = my - (py - r.height / 2) * VIEW.k;
+  applyView();
+}
+(function bindPan() {
+  const el = $("map"); if (!el.addEventListener) return;
+  const pts = new Map(); let moved = 0, pinch = 0, last = null;
+  el.addEventListener("pointerdown", e => { pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 1) { moved = 0; last = [e.clientX, e.clientY]; } if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+  el.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), r = el.getBoundingClientRect();
+      if (pinch) zoomBy(pinch / d, (a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top);
+      pinch = d; moved = 99; return;
+    }
+    if (pts.size === 1 && last) {
+      const dx = e.clientX - last[0], dy = e.clientY - last[1];
+      moved += Math.abs(dx) + Math.abs(dy);
+      if (moved > 8) { VIEW.cx -= dx * VIEW.k; VIEW.cy -= dy * VIEW.k; applyView(); }
+      last = [e.clientX, e.clientY];
+    }
+  });
+  const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; if (!pts.size) last = null; };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  // 끌어서 움직였으면 그 손가락을 뗄 때의 클릭은 무시한다
+  el.addEventListener("click", e => { if (moved > 8) { e.stopPropagation(); e.preventDefault(); } }, true);
+  el.addEventListener("wheel", e => { e.preventDefault(); const r = el.getBoundingClientRect(); zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+})();
 
 /* ================= 아래 창 ================= */
 let tab = null;
@@ -632,21 +792,23 @@ function tapTile(x, y) {
     return openSheet(`<h3>${esc(b.name)} ${"◆".repeat(t.lv)}<small>해마다 ${esc(effText(y1)) || "효과 없음"}</small></h3>
       <div class="eff">${esc(b.desc)}</div>
       ${works(x, y) ? "" : `<div class="warn">⚠ 왕궁과 이어진 도로가 닿지 않아 일하지 않는다. 옆에 도로를 놓아 이어 주자.</div>`}
+      ${t.b === "wall" ? (() => { const n = N4.filter(([dx, dy]) => S.map[y + dy]?.[x + dx]?.b === "wall").length; return `<div class="bonus"><span>✦ ${n ? `이웃 망루와 성벽 ${n}줄로 이어짐` : "홀로 선 망루 · 옆에 망루를 세우면 성벽이 쌓인다"}</span><span>✦ 도성 방어 ${defense()} (군사 ${S.army} + 망루 ${count("wall") * TOWER_DEF} + 성벽 ${wallLinks() * LINK_DEF})</span></div>`; })() : ""}
       ${bonuses(x, y).length ? `<div class="bonus">${bonuses(x, y).map(bo => `<span>✦ ${esc(bo.why)} · ${esc(effText(bo.eff))}</span>`).join("")}</div>` : ""}
       ${b.fixed ? "" : `<div class="grid2">
-        <button class="card" id="up" type="button"${t.lv >= 3 || S.gold < cost ? " disabled" : ""}><b>${t.lv >= 3 ? "최고 단계" : "증축"}</b>${t.lv >= 3 ? "" : `<span class="cost">재정 ${cost}</span><span class="eff">효과가 2배, 3배로 늘어난다</span>`}</button>
+        <button class="card" id="up" type="button"${t.lv >= 3 || S.gold < cost || S.food < FOOD.up ? " disabled" : ""}><b>${t.lv >= 3 ? "최고 단계" : "증축"}</b>${t.lv >= 3 ? "" : `<span class="cost">재정 ${cost} · 식량 ${FOOD.up}</span><span class="eff">효과가 2배, 3배로 늘어난다</span>`}</button>
         <button class="card" id="rm" type="button"><b>허물기</b><span class="eff">재정 ${Math.floor(b.cost / 2)} 돌려받음</span></button></div>`}
+      ${t.b === "paddy" ? addonHtml(x, y, t) : ""}
       ${t.b === "harbor" ? tradeHtml(t.lv) : ""}`, "build"), bindTile(x, y);
   }
-  const ok = BUILD_LIST.filter(k => B[k].on === "any" || B[k].on === ter);
-  openSheet(`<h3>무엇을 지을까<small>${x + 1}·${y + 1}${nearRiver(x, y) ? " · 강가" : ""}${ter === "hill" ? " · 공산성 언덕" : ""}${nearPalace(x, y) ? " · 궁 주변" : ""}</small></h3>
+  const ok = BUILD_LIST.filter(k => ter === "mountain" ? k === "wall" : B[k].on === "any" || B[k].on === ter || (ter === "hill" && B[k].hill));
+  openSheet(`<h3>무엇을 지을까<small>건물 ${used()}/${room()} · ${x + 1}·${y + 1}${nearRiver(x, y) ? " · 강가" : ""}${ter === "mountain" ? " · 산 (망루만)" : ter === "hill" ? (x >= 4 && y >= 4 ? " · 공산성 언덕" : " · 산성 언덕") : ""}${nearPalace(x, y) ? " · 궁 주변" : ""}</small></h3>
     <div class="grid2">${ok.map(k => {
-      const b = B[k], why = b.river && !nearRiver(x, y) ? "강가에만 지을 수 있다" : b.need && !b.need() ? b.needText : S.gold < b.cost ? "재정이 모자라다" : "";
+      const b = B[k], why = b.river && !nearRiver(x, y) ? "강가에만 지을 수 있다" : !FREE.has(k) && used() >= room() ? `민가가 모자라다 (건물 ${used()}/${room()})` : b.need && !b.need() ? b.needText : S.gold < b.cost ? "재정이 모자라다" : S.food < foodNeed("build", k) ? "식량이 모자라다" : "";
       const extra = previewBonus(k, x, y);
       const linked = k === "road" || NOROAD.has(k) || (() => { const o = S.map[y][x]; S.map[y][x] = { b: k, lv: 1 }; REACH = null; const w = works(x, y); S.map[y][x] = o; REACH = null; return w; })();
-      return `<button class="card" data-b="${k}" type="button"${why ? " disabled" : ""}><b>${esc(b.name)}</b><span class="cost">재정 ${b.cost}</span><span class="eff">${esc(why || (k === "road" ? "건물을 왕궁과 잇는다" : effText(b.eff)))}</span>${!why && extra ? `<span class="plus">✦ ${esc(extra)}</span>` : ""}${!why && !linked ? `<span class="warnline">도로가 닿지 않는 자리</span>` : ""}</button>`;
+      return `<button class="card" data-b="${k}" type="button"${why ? " disabled" : ""}><b>${esc(b.name)}</b><span class="cost">재정 ${b.cost}${foodNeed("build", k) ? ` · 식량 ${foodNeed("build", k)}` : ""}</span><span class="eff">${esc(why || (k === "road" ? "건물을 왕궁과 잇는다" : effText(b.eff)))}</span>${!why && extra ? `<span class="plus">✦ ${esc(extra)}</span>` : ""}${!why && !linked ? `<span class="warnline">도로가 닿지 않는 자리</span>` : ""}</button>`;
     }).join("")}</div>`, "build");
-  $("sheet").querySelectorAll("[data-b]").forEach(el => el.onclick = () => { const k = el.dataset.b; S.gold -= B[k].cost; S.map[y][x] = { b: k, lv: 1 }; after(`${jo(B[k].name, "을/를")} 지었다.`); tapTile(x, y); });
+  $("sheet").querySelectorAll("[data-b]").forEach(el => el.onclick = () => { const k = el.dataset.b; S.gold -= B[k].cost; eat(foodNeed("build", k)); S.map[y][x] = { b: k, lv: 1 }; after(`${jo(B[k].name, "을/를")} 지었다.`); tapTile(x, y); });
 }
 function previewBonus(k, x, y) {
   const old = S.map[y][x]; S.map[y][x] = { b: k, lv: 1 };
@@ -656,8 +818,9 @@ function previewBonus(k, x, y) {
 }
 function bindTile(x, y) {
   const t = S.map[y][x];
-  if ($("up")) $("up").onclick = () => { const c = upCost(t.b, t.lv); if (S.gold < c) return; S.gold -= c; t.lv++; after(`${jo(B[t.b].name, "을/를")} 증축했다.`); tapTile(x, y); };
+  if ($("up")) $("up").onclick = () => { const c = upCost(t.b, t.lv); if (S.gold < c || S.food < FOOD.up) return; S.gold -= c; eat(FOOD.up); t.lv++; after(`${jo(B[t.b].name, "을/를")} 증축했다.`); tapTile(x, y); };
   $("sheet").querySelectorAll("[data-t]").forEach(el => el.onclick = () => trade(el.dataset.t, x, y));
+  $("sheet").querySelectorAll("[data-a]").forEach(el => el.onclick = () => { const a = el.dataset.a; S.gold -= ADDON[a].cost; eat(FOOD.addon); S.map[y][x][a] = true; after(`논에 ${jo(ADDON[a].name, "을/를")} 들였다.`); tapTile(x, y); });
   if ($("rm")) $("rm").onclick = () => { S.gold += Math.max(1, Math.floor(B[t.b].cost / 2)); S.map[y][x] = null; after(`${jo(B[t.b].name, "을/를")} 허물었다.`); tapTile(x, y); };
 }
 /* 나루 교역: 한 해에 한 번, 배를 보낸다 */
@@ -673,55 +836,67 @@ const TRADE = {
     eff: { yang: 8, power: 4, nobles: 2, people: 3, buddha: 1 }, tag: "제도·학문·공예·경전", title: "선진문물", bg: "liang",
     msg: "양나라의 학자와 장인, 경전과 공예품이 함께 건너왔다. 웅진의 관청과 공방, 절이 한꺼번에 새로워졌다." }
 };
+function addonHtml(x, y, t) {
+  return `<h3>논에 시설 들이기<small>한 번 지으면 계속 남는다</small></h3><div class="grid2">${Object.keys(ADDON).map(a => {
+    const A = ADDON[a], why = t[a] ? "이미 있다" : A.river && !nearRiver(x, y) ? "강가 논에만 쌓을 수 있다" : S.gold < A.cost ? "재정이 모자라다" : S.food < FOOD.addon ? "식량이 모자라다" : "";
+    return `<button class="card" data-a="${a}" type="button"${why ? " disabled" : ""}><b>${t[a] ? "✓ " : ""}${esc(A.name)}</b><span class="cost">재정 ${A.cost} · 식량 ${FOOD.addon}</span><span class="eff">${esc(why || effText(A.eff) + " · " + A.desc)}</span></button>`;
+  }).join("")}</div>`;
+}
 function tradeHtml(lv) {
   const list = Object.keys(TRADE).filter(k => !(TRADE[k].upto && lv > TRADE[k].upto));
   return `<h3>교역선<small>${S.tradeDone ? "올해는 이미 배를 보냈다" : `한 해에 한 번 · 나루 ${lv}단계`}</small></h3><div class="grid2">${list.map(k => {
     const t = TRADE[k], got = t.once && t.done();
-    const why = got ? "이미 들여왔다" : lv < t.lv ? `나루 ${t.lv}단계부터` : S.tradeDone ? "올해는 배가 없다" : !t.need() ? t.needText : S.gold < t.cost ? "재정이 모자라다" : "";
-    return `<button class="card" data-t="${k}" type="button"${why ? " disabled" : ""}><b>${esc(t.name)}</b><span class="cost">재정 ${t.cost}</span><span class="eff">${esc(why || effText(t.eff) + " · " + t.tag)}</span></button>`;
+    const why = got ? "이미 들여왔다" : lv < t.lv ? `나루 ${t.lv}단계부터` : S.tradeDone ? "올해는 배가 없다" : !t.need() ? t.needText : S.gold < t.cost ? "재정이 모자라다" : S.food < FOOD.trade ? "식량이 모자라다" : "";
+    return `<button class="card" data-t="${k}" type="button"${why ? " disabled" : ""}><b>${esc(t.name)}</b><span class="cost">재정 ${t.cost} · 식량 ${FOOD.trade}</span><span class="eff">${esc(why || effText(t.eff) + " · " + t.tag)}</span></button>`;
   }).join("")}</div>`;
 }
 function trade(k, x, y) {
-  const t = TRADE[k]; S.gold -= t.cost; S.tradeDone = true;
+  const t = TRADE[k]; S.gold -= t.cost; eat(FOOD.trade); S.tradeDone = true;
   if (k === "kinsong") S.kinsong = true;
   if (k === "culture") S.culture = (S.culture || 0) + 1;
   const d = apply(t.eff); save(); paintAll();
   show({ bg: t.bg, when: `${year()}년 · 웅진 나루`, title: t.title, text: [t.msg], sum: d });
   tapTile(x, y);
 }
+/* 무엇을 하든 일꾼과 군사를 먹여야 한다: 행동마다 드는 식량 */
+const FOOD = { build: 2, up: 3, addon: 2, hire: 4, trade: 2, war: 8 };
+const foodNeed = (k, b) => k === "build" && b === "road" ? 0 : FOOD[k];
+const eat = n => { S.food = Math.max(0, S.food - n); };
 function after(msg) { S.log = msg; S.last = {}; save(); paintAll(); }
 function showBuild() {
   if (tab === "build") return openSheet("", null);
-  openSheet(`<h3>건설<small>지도에서 빈 땅을 누르세요</small></h3><div class="eff">강가에는 제방·나루, 공산성 언덕에는 성벽을 지을 수 있다. 논은 강가에 짓거나 제방 옆에 지으면 더 거둔다. 지은 건물을 다시 누르면 증축할 수 있다.</div>`, "build");
+  openSheet(`<h3>건설<small>지도에서 빈 땅을 누르세요</small></h3><div class="eff">강가에는 나루, 언덕에는 망루·민가·절·군영, 북쪽 끝의 산에는 망루만 지을 수 있다. 망루를 맞닿게 세우면 그 사이에 성벽이 쌓인다. 논은 강가에 짓거나 제방 옆에 지으면 더 거둔다. 지은 건물을 다시 누르면 증축할 수 있다.</div>`, "build");
 }
 function showPeople() {
   if (tab === "people") return openSheet("", null);
-  const list = Object.keys(PEOPLE).filter(k => year() >= PEOPLE[k].from && (!PEOPLE[k].special || S.flags.danyangi));
+  const list = Object.keys(PEOPLE).filter(k => year() >= PEOPLE[k].from);
   openSheet(`<h3>인재<small>등용하면 해마다 녹봉이 든다</small></h3><div class="grid2">${list.map(k => {
-    const p = PEOPLE[k], has = S.hired.includes(k);
-    return `<button class="card person" data-p="${k}" type="button"${has || S.gold < p.cost ? " disabled" : ""}>
-      <span class="ava">${p.img ? `<img src="assets/char_${p.img}.png" alt="">` : esc(p.han)}</span>
-      <span><b>${esc(p.name)}</b><span class="tag">${esc(p.role)}</span><br><span class="cost">${has ? "등용됨" : `재정 ${p.cost}`} · 녹봉 ${p.upkeep}</span><br><span class="eff">${esc(effText(p.eff))}${p.war ? ` · 원정 +${p.war}` : ""}${p.buddha ? " · 불심" : ""}</span></span></button>`;
+    const p = PEOPLE[k], has = S.hired.includes(k), lock = p.req && !p.req();
+    return `<button class="card person" data-p="${k}" type="button"${has || lock || S.gold < p.cost || S.food < FOOD.hire ? " disabled" : ""}>
+      <span class="ava">${p.img ? `<img src="assets/char_${p.img}.png" alt=""${p.face ? ` style="width:230%;height:230%;object-position:50% 0;transform:translate(${Math.round((.5 - p.face[0]) * 100)}%,${Math.round((.5 - p.face[1]) * 100)}%)"` : ""}>` : esc(p.han)}</span>
+      <span><b>${esc(p.name)}</b><span class="tag">${esc(p.role)}</span><br><span class="cost">${has ? "등용됨" : lock ? esc(p.reqText) : `재정 ${p.cost} · 식량 ${FOOD.hire}`} · 녹봉 ${p.upkeep}</span><br><span class="eff">${esc(effText(p.eff))}${p.war ? ` · 원정 +${p.war}` : ""}${p.buddha ? " · 불심" : ""}</span></span></button>`;
   }).join("")}</div>`, "people");
-  $("sheet").querySelectorAll("[data-p]").forEach(el => el.onclick = () => { const k = el.dataset.p; S.gold -= PEOPLE[k].cost; S.hired.push(k); after(`${jo(PEOPLE[k].name, "을/를")} 등용했다.`); openSheet("", null); showPeople(); });
+  $("sheet").querySelectorAll("[data-p]").forEach(el => el.onclick = () => { const k = el.dataset.p; if (S.food < FOOD.hire) return; S.gold -= PEOPLE[k].cost; eat(FOOD.hire); S.hired.push(k); after(`${jo(PEOPLE[k].name, "을/를")} 등용했다.`); openSheet("", null); showPeople(); });
 }
 function showWar() {
   if (tab === "war") return openSheet("", null);
   const list = Object.keys(TARGETS).filter(k => year() >= TARGETS[k].from);
-  openSheet(`<h3>북방 원정<small>원정력 ${warPower()} · 한 해에 한 번</small></h3><div class="eff">원정력은 군사력에 장수와 성벽의 힘을 더한 값이다. 출정할 때마다 군사력 10과 재정 10이 든다.</div><div class="grid2">${list.map(k => {
+  openSheet(`<h3>북방 원정<small>원정력 ${warPower()} · 한 해에 한 번</small></h3><div class="eff">원정력은 군사력에 장수와 망루의 힘을 더한 값이다. 출정할 때마다 재정 10, 식량 8(군량), 군사력 10, 왕권 3, 귀족 협력 4, 민심 5가 든다. 하나라도 모자라면 출정할 수 없다.</div><div class="grid2">${list.map(k => {
     const t = TARGETS[k], done = S.won.includes(k), c = Math.round(chance(t.str) * 100);
-    return `<button class="card" data-w="${k}" type="button"${done || S.warDone || S.gold < 10 ? " disabled" : ""}><b>${esc(t.name)}</b><span class="cost">${done ? "되찾음" : `방어 ${t.str} · 승산 ${c}%`}</span><span class="eff">${esc(t.desc)}</span></button>`;
+    return `<button class="card" data-w="${k}" type="button"${done || S.warDone || !warReady() ? " disabled" : ""}><b>${esc(t.name)}</b><span class="cost">${done ? "되찾음" : `방어 ${t.str} · 승산 ${c}%`}</span><span class="eff">${esc(t.desc)}</span></button>`;
   }).join("")}${list.length ? "" : `<div class="eff">아직 칠 만한 성이 없다.</div>`}</div>`, "war");
   $("sheet").querySelectorAll("[data-w]").forEach(el => el.onclick = () => attack(el.dataset.w));
 }
 function attack(k) {
   const t = TARGETS[k], win = Math.random() < chance(t.str);
-  S.warDone = true; S.gold -= 10;
-  let d = apply({ army: -10 });
+  if (!warReady()) return;
+  S.warDone = true;
+  let d = apply(WAR_COST);
   if (win) {
     S.won.push(k); if (t.ring) S.ring = Math.max(S.ring, t.ring);
-    d = { ...d, ...apply(t.reward) };
-  } else d = { ...d, ...apply({ army: -10, power: -5 }) };
+    var d2 = apply(t.reward);
+  } else var d2 = apply({ army: -10, power: -5 });
+  for (const k in d2) d[k] = (d[k] || 0) + d2[k];
   openSheet("", null); save(); paintAll();
   show({ bg: "march", who: win ? "sama" : null, when: `${year()}년 · 북방 원정`, title: win ? `${jo(t.name, "을/를")} 되찾다` : `${t.name}에서 물러나다`,
     text: win ? [`성문이 열렸다. 북쪽으로 향하는 길이 다시 백제의 것이 되었다.${t.ring ? " 웅진 둘레의 땅이 넓어졌다." : ""}`] : ["성은 생각보다 단단했다. 많은 군사를 잃고 웅진으로 돌아왔다."],
@@ -774,21 +949,21 @@ const HISTORY = {
       { label: "항복을 받고 목숨은 살려 준다", eff: { nobles: 10, power: -10 }, res: "백씨 사람들은 고개를 숙였다. 그러나 다른 귀족들은 반역해도 살 수 있다는 것을 배웠다." }
     ] }),
   502: () => ({ bg: "field", when: "502년 봄", title: "굶주림과 역병", text: ["봄에 백성이 굶주리고 역병이 돌았다."],
-    choices: count("granary")
-      ? [{ label: "창고를 열어 나눠 준다", eff: { people: 10, gold: -15 }, res: "창고 문이 열리던 날, 성문 앞에 끝없는 줄이 섰다." }, { label: "버틴다", eff: { people: -10 }, res: "길가에 굶어 죽은 사람이 늘었다." }]
-      : [{ label: "열 창고가 없다", eff: { people: -12 }, res: "나눠 줄 곡식이 없었다. 창고를 미리 지어 두어야 한다." }] }),
+    choices: countAddon("granary")
+      ? [{ label: "창고를 열어 나눠 준다", sub: "식량 15", need: () => S.food >= 15, needText: "식량이 모자라다", eff: { people: 10, food: -15 }, res: "창고 문이 열리던 날, 성문 앞에 끝없는 줄이 섰다." }, { label: "버틴다", eff: { people: -10 }, res: "길가에 굶어 죽은 사람이 늘었다." }]
+      : [{ label: "열 창고가 없다", eff: { people: -12 }, res: "나눠 줄 곡식이 없었다. 논에 창고를 미리 들여 두어야 한다." }] }),
   506: () => ({ bg: "field", when: "506년 봄 · 웅진 들판", title: "마른 냇물", text: ["큰 역병이 돌고, 3월부터 5월까지 비가 오지 않아 냇물과 못이 말랐다."],
     src: ["삼국사기", "六年 春太疫 三月至五月不雨 川澤竭 民饑 發倉賑救", "6년 봄, 큰 역병이 돌았다. 3월부터 5월까지 비가 오지 않아 냇물과 못이 말랐다. 백성이 굶주리니 창고를 열어 구제하였다.", "『삼국사기』 권26 백제본기 제4 무령왕 6년(506) · 국사편찬위원회 한국사데이터베이스"],
     choices: [
-      { label: "창고를 열어 굶주린 백성을 구한다", sub: "사료 속 무령왕", need: () => count("granary") && S.gold >= 20, needText: "창고와 재정 20이 있어야 한다", eff: { people: 18, gold: -20 }, res: "한 노파가 곡식 자루를 받아 들고 왕궁 쪽을 향해 오래 절했다." },
+      { label: "창고를 열어 굶주린 백성을 구한다", sub: "사료 속 무령왕", need: () => countAddon("granary") && S.food >= 20, needText: "창고 딸린 논과 식량 20이 있어야 한다", eff: { people: 18, food: -20 }, res: "한 노파가 곡식 자루를 받아 들고 왕궁 쪽을 향해 오래 절했다." },
       { label: "버틴다. 창고는 전쟁에 써야 한다", eff: { people: -18, army: 5 }, res: "그해 여름, 웅진 길가에 굶어 죽은 사람이 쌓였다." }
     ] }),
   510: () => {
-    const lv = count("levee");
+    const lv = countAddon("levee");
     return { bg: "flood", when: "510년 정월", title: "제방을 튼튼히 하라", text: ["왕이 영을 내렸다. 제방을 튼튼히 고치고, 안팎의 놀고먹는 자들을 농사로 돌려보내라."],
       src: ["삼국사기", "十年 春正月 下令完固隄防 驅内外㳺食者歸農", "10년 봄 정월, 영을 내려 제방을 튼튼히 고치게 하고, 안팎의 놀고먹는 자들을 몰아 농사로 돌아가게 하였다.", "『삼국사기』 권26 백제본기 제4 무령왕 10년(510) · 국사편찬위원회 한국사데이터베이스"],
       choices: [lv >= 2 ? { label: "이미 쌓아 둔 제방을 고친다", eff: { people: 12, gold: 15 }, res: "둑이 다시 서고, 떠돌던 사람들이 괭이를 잡았다." }
-        : { label: "쌓아 둔 제방이 모자라다", eff: { people: -5 }, res: "강가에 제방을 둘 이상 쌓아 두었다면 좋았을 것이다." }] };
+        : { label: "쌓아 둔 제방이 모자라다", eff: { people: -5 }, res: "강가 논 둘 이상에 제방을 쌓아 두었다면 좋았을 것이다." }] };
   },
   512: () => ({ bg: "march", who: "sama", when: "512년 9월 · 위천 북쪽", title: "기병 3천",
     text: ["고구려가 가불성을 빼앗고 원산성을 깨뜨렸다. 왕은 날랜 기병 3천을 이끌고 위천 북쪽으로 나아간다."],
@@ -804,7 +979,7 @@ const HISTORY = {
     src: ["일본서기", "七年夏六月 百濟遣姐彌文貴將軍 洲利卽爾將軍 副穗積臣押山 … 貢五經博士段楊爾 別奏云 伴跛國略奪臣國己汶之地 伏願天恩判還本屬", "7년 여름 6월, 백제가 저미문귀 장군과 주리즉이 장군을 보내 호즈미노오미 오시야마에게 딸려 … 오경박사 단양이를 바쳤다. 따로 아뢰기를 '반파국이 신의 나라 기문 땅을 빼앗았습니다. 엎드려 바라건대 천은으로 판결하시어 본래 속한 곳으로 돌려주소서'라고 하였다.", "『일본서기』 권17 계체천황 7년(513) 6월"],
     choices: [
       { label: "오경박사 단양이를 보낸다", sub: "사료 속 무령왕 · 재정 20", need: () => S.gold >= 20, needText: "재정이 모자라다", eff: { wa: 30, gold: -20 }, act: () => { S.flags.danyangi = true; },
-        res: "유교 경전을 가르칠 학자가 바다를 건넜다. 이제 인재 창에서 단양이를 등용할 수 있다. 그는 왜에 머물며 두 나라를 잇는다." },
+        res: "유교 경전을 가르칠 학자가 바다를 건넜다. 그는 왜에 머물며 두 나라를 잇는다. 이제부터 해마다 왜 우호 +2, 귀족 +1." },
       { label: "왜에 기대지 않는다", eff: { wa: -15, power: 5 }, res: "사신은 떠나지 않았다." }
     ] }),
   521: () => ({ bg: "liang", when: "521년 11월 · 양나라 건강", title: "다시 강한 나라",
@@ -822,33 +997,52 @@ const HISTORY = {
     ] })
 };
 const RANDOM = [
-  () => ({ bg: "flood", when: `${year()}년 여름 · 돌발`, title: "금강이 넘치다", text: [count("levee") ? "장마에 금강이 넘쳤지만 제방이 물을 막았다." : "장마에 금강이 넘쳤다. 강가 마을들이 물에 잠겼다."],
-    choices: [count("levee") ? { label: "제방 덕분에 무사하다", eff: { people: 3 } } : { label: "군사를 풀어 막는다", eff: { people: -5, army: -5 }, act: () => floodDamage() }] }),
+  () => ({ bg: "flood", when: `${year()}년 여름 · 돌발`, title: "금강이 넘치다", text: [countAddon("levee") ? "장마에 금강이 넘쳤지만 제방이 물을 막았다." : "장마에 금강이 넘쳤다. 강가 마을들이 물에 잠겼다."],
+    choices: [countAddon("levee") ? { label: "제방 덕분에 무사하다", eff: { people: 3 } } : { label: "군사를 풀어 막는다", sub: "식량 3", eff: { people: -5, army: -5, food: -3 }, act: () => floodDamage() }] }),
   () => ({ bg: "palace", who: "monk", when: `${year()}년 · 돌발`, title: "바둑 두는 승려", text: ["고구려에서 왔다는 승려가 바둑을 잘 둔다며 왕을 뵙기를 청한다. 늙은 신하가 낯빛이 하얗게 질렸다. '도림이 꼭 저렇게 왔습니다.'"],
-    choices: [{ label: "만나 보되, 몰래 뒤를 캔다", eff: { power: 5, gold: -5 }, res: "승려의 짐에서 웅진성 성벽을 그린 그림이 나왔다." }, { label: "의심 없이 맞아들인다", eff: { power: -8, army: -5 }, res: "승려는 어느 날 밤 사라졌다. 무엇을 보고 갔는지 아무도 모른다." }] }),
+    choices: [{ label: "만나 보되, 몰래 뒤를 캔다", sub: "재정 5 · 식량 2", eff: { power: 5, gold: -5, food: -2 }, res: "승려의 짐에서 웅진성 성벽을 그린 그림이 나왔다." }, { label: "의심 없이 맞아들인다", eff: { power: -8, army: -5 }, res: "승려는 어느 날 밤 사라졌다. 무엇을 보고 갔는지 아무도 모른다." }] }),
   () => ({ bg: "harbor", when: `${year()}년 · 돌발`, title: "가야의 사신", text: ["가야의 한 나라가 덩이쇠를 넉넉히 줄 테니 손을 잡자고 한다."],
-    choices: [{ label: "손을 잡는다", eff: { gold: 20, army: 5, nobles: -5 } }, { label: "돌려보낸다", eff: { people: 3 } }] }),
+    choices: [{ label: "손을 잡는다", sub: "사신 대접 · 식량 3", need: () => S.food >= 3, needText: "식량이 모자라다", eff: { gold: 20, army: 5, nobles: -5, food: -3 } }, { label: "돌려보낸다", eff: { people: 3 } }] }),
   () => ({ bg: "harbor", when: `${year()}년 · 돌발`, title: "왜에서 온 배", text: ["왜에서 배가 들어왔다. 늙은 뱃사공이 말한다. '각라도 사람들은 아직도 그 섬을 임금님 섬이라 부릅니다.'"],
-    choices: [{ label: "선물을 들려 보낸다", sub: "재정 10", need: () => S.gold >= 10, needText: "재정이 모자라다", eff: { wa: 12, gold: -10 } }, { label: "담담히 보낸다", eff: { power: 2 } }] }),
+    choices: [{ label: "선물을 들려 보낸다", sub: "재정 10 · 식량 3", need: () => S.gold >= 10 && S.food >= 3, needText: "재정이나 식량이 모자라다", eff: { wa: 12, gold: -10, food: -3 } }, { label: "담담히 보낸다", eff: { power: 2 } }] }),
   () => ({ bg: "harbor", when: `${year()}년 · 돌발`, title: "남조에서 온 장인", text: ["양나라 상선에 벽돌 굽는 장인들이 타고 왔다. 백제에 머물며 일하고 싶다고 한다."],
-    choices: [{ label: "맞아들인다", sub: "재정 15", need: () => S.gold >= 15, needText: "재정이 모자라다", eff: { yang: 15, gold: -15 } }, { label: "돌려보낸다", eff: {} }] })
+    choices: [{ label: "맞아들인다", sub: "재정 15 · 식량 3", need: () => S.gold >= 15 && S.food >= 3, needText: "재정이나 식량이 모자라다", eff: { yang: 15, gold: -15, food: -3 } }, { label: "돌려보낸다", eff: {} }] })
 ];
+/* 사료에 없는 돌발 침입 — 해가 갈수록 세진다 */
+const BORDER = [
+  { who: "말갈 약탈대", place: "북쪽 목책", text: "말갈 기병 수백이 북쪽 목책을 넘어 마을을 노린다." },
+  { who: "고구려 척후 기병", place: "공산성 아래", text: "고구려 척후 기병이 공산성 아래까지 내려와 길을 살핀다. 뒤에 본대가 있을지 모른다." },
+  { who: "말갈", place: "고목성", text: "말갈이 다시 고목성 쪽으로 몰려온다. 봉화가 연이어 오른다." },
+  { who: "바다 도적", place: "금강 나루", text: "배 몇 척이 금강을 거슬러 올라와 나루의 짐을 노린다.", harbor: true }
+];
+function borderRaid() {
+  const pool = BORDER.filter(b => !b.harbor || tiles("harbor"));
+  const b = pool[Math.floor(Math.random() * pool.length)];
+  const r = { who: b.who, place: b.place, str: 20 + Math.floor((year() - 501) * 1.5) + Math.floor(Math.random() * 10), soft: true };
+  const def = defense();
+  return { bg: "march", when: `${year()}년 · ${b.place} · 돌발`, title: `${b.who}의 침입`, text: [b.text],
+    note: `방어 ${def} · 적 ${r.str}. 방어가 모자라면 마을이 불타고 건물 하나가 상한다.`,
+    choices: [
+      { label: "성문을 닫고 맞선다", sub: `군량 식량 5 · ${def >= r.str ? "막아 낼 수 있다" : "방어가 모자라다"}`, eff: { food: -5 }, then: () => raid(r) },
+      { label: "재물을 주어 돌려보낸다", sub: "재정 10 · 왕권 −2", need: () => S.gold >= 10, needText: "재정이 모자라다", eff: { gold: -10, power: -2 }, res: `${jo(b.who, "은/는")} 재물을 받고 물러갔다. 조정에서는 '돈으로 산 평화'라는 말이 돌았다.` }
+    ] };
+}
 function floodDamage() {
   const p = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (S.map[y][x]?.b === "paddy" && nearRiver(x, y)) p.push([x, y]);
   if (p.length) { const [x, y] = p[Math.floor(Math.random() * p.length)]; S.map[y][x] = null; }
 }
 function raid(r) {
-  const def = S.army + count("wall") * 10, ok = def >= r.str;
+  const def = defense(), ok = def >= r.str;
   let d;
   if (ok) d = apply({ power: 4, army: -4 });
   else {
-    d = apply({ people: -10, gold: -20, army: -8, power: -4 });
+    d = apply(r.soft ? { people: -4, gold: -8, army: -3, power: -2 } : { people: -10, gold: -20, army: -8, power: -4 });
     const cells = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t && t.b !== "palace" && t.b !== "road") cells.push(t); }
     if (cells.length) { const t = cells[Math.floor(Math.random() * cells.length)]; t.lv > 1 ? t.lv-- : (S.map.forEach(r2 => r2.forEach((c, i) => { if (c === t) r2[i] = null; }))); }
   }
   return { bg: ok ? "march" : "fire", when: `${year()}년 · ${r.place}`, title: ok ? `${r.who}의 침입을 막다` : `${r.who}에게 뚫리다`,
-    text: [ok ? `${jo(r.who, "이/가")} ${jo(r.place, "을/를")} 쳐들어왔지만, 성벽과 군사가 막아 냈다. (방어 ${def} ≥ 적 ${r.str})` : `${jo(r.who, "이/가")} ${jo(r.place, "을/를")} 뚫고 들어와 마을을 불태웠다. 건물 하나가 무너졌다. (방어 ${def} < 적 ${r.str})`],
-    note: "방어력은 군사력에 성벽 한 단계마다 10을 더한 값이다.", sum: d };
+    text: [ok ? `${jo(r.who, "이/가")} ${jo(r.place, "을/를")} 쳐들어왔지만, 망루와 성벽, 군사가 막아 냈다. (방어 ${def} ≥ 적 ${r.str})` : `${jo(r.who, "이/가")} ${jo(r.place, "을/를")} 뚫고 들어와 마을을 불태웠다. 건물 하나가 무너졌다. (방어 ${def} < 적 ${r.str})`],
+    note: `방어력은 군사력에 망루 한 단계마다 ${TOWER_DEF}, 망루 사이 성벽 한 줄마다 ${LINK_DEF}를 더한 값이다.`, sum: d };
 }
 
 /* ================= 한 해 넘기기 ================= */
@@ -856,10 +1050,13 @@ function nextYear() {
   if (busy()) return;
   openSheet("", null); sel = null;
   const inc = income();
+  const short = S.food + (inc.food || 0) < 0;
   const d = apply(inc);
+  if (short) { const d2 = apply({ people: -10, nobles: -3 }); for (const k in d2) d[k] = (d[k] || 0) + d2[k]; }
   S.last = d;
   const y = year();
-  const queue = [{ bg: null, when: `${y}년 결산`, title: `무령왕 ${S.turn + 1}년이 저물다`, text: [incomeText(inc)], sum: d }];
+  const queue = [{ bg: short ? "field" : null, when: `${y}년 결산`, title: short ? `무령왕 ${S.turn + 1}년 · 식량이 바닥났다` : `무령왕 ${S.turn + 1}년이 저물다`,
+    text: [incomeText(inc)].concat(short ? ["곳간이 비었다. 굶주린 백성들이 떠나고, 귀족들은 왕의 살림을 탓한다."] : []), note: `식량 ${S.food}/${foodCap()} · 논을 늘리고 창고를 들이면 더 쌓아 둘 수 있다.`, sum: d }];
   S.turn++; S.warDone = false; S.tradeDone = false;
   const wasPeace = S.peace;
   S.peace = S.people >= 90;
@@ -867,9 +1064,10 @@ function nextYear() {
   if (S.nobles <= 0 || S.power <= 0) return endGame("coup", queue);
   if (S.turn >= TURNS) return endGame("tomb", queue);
   const ny = year();
-  if (S.peace && !wasPeace) queue.push({ bg: "river", when: `${ny}년`, title: "태평성대", text: ["백성들이 배불리 먹고 노래를 부른다. 웅진의 들판마다 풍년이 들었다. 민심이 90 이상인 동안 모든 생산이 1.3배가 되고, 백성이 떠나지 않는다."], note: "민심이 90 아래로 떨어지면 태평성대가 끝난다." });
+  if (S.peace && !wasPeace) queue.push({ bg: "river", when: `${ny}년`, title: "태평성대", text: ["백성들이 배불리 먹고 노래를 부른다. 웅진의 들판마다 풍년이 들었다. 민심이 90 이상인 동안 모든 생산이 1.3배가 되지만, 민심은 절반만 오른다."], note: "민심이 90 아래로 떨어지면 태평성대가 끝난다." });
   if (!S.peace && wasPeace) queue.push({ bg: "field", when: `${ny}년`, title: "태평성대가 저물다", text: ["민심이 흔들리기 시작했다. 풍년의 노래가 그쳤다."] });
   if (RAIDS[ny]) queue.push(raid(RAIDS[ny]));
+  else if (ny > 502 && Math.random() < .25) queue.push(borderRaid());
   if (HISTORY[ny]) queue.push(HISTORY[ny]());
   else if (!RAIDS[ny] && Math.random() < .55) queue.push(RANDOM[Math.floor(Math.random() * RANDOM.length)]());
   S.log = `${ny}년이 밝았다.`;
@@ -934,12 +1132,15 @@ function tombEnd() {
 function help() {
   show({ bg: "river", when: "웅진경영", title: "하는 법", text: [
     "501년부터 523년까지, 한 해가 한 턴이다. 스물세 턴 동안 웅진을 다시 세운다.",
-    "지도의 빈 땅을 눌러 건물을 짓는다. 지은 건물을 다시 누르면 증축하거나 허문다. 논은 강가나 제방 옆에서 더 거둔다.",
-    "건물은 왕궁과 이어진 도로에 맞닿아 있어야 일한다(성벽·제방은 도로가 없어도 된다). 끊긴 건물 위에는 빨간 느낌표가 뜨고 유지비만 든다. 도로를 따라 일꾼들이 오간다.",
-    "왕궁 둘레 두 칸(금빛 점선)에 귀족 저택·절·군영·성벽·창고·금공방을 지으면 효과가 더 붙는다.",
-    "맞닿게 지으면 짝 효과가 나는 건물들이 있다: 논+제방, 논+창고, 군영+성벽, 절+귀족 저택, 벽돌 가마+나루, 금공방+벽돌 가마, 절+절. 짝이 맞으면 지도에 금빛 점선이 이어진다.",
-    "인재 창에서 귀족·장수·승려·장인을 등용한다. 해마다 녹봉이 든다.",
-    "원정 창에서 북쪽의 고구려 성을 친다. 되찾을 때마다 웅진 둘레의 땅이 넓어진다.",
+    "지도의 빈 땅을 눌러 건물을 짓는다. 지은 건물을 다시 누르면 증축하거나 허문다. 논은 금강 옆에서 더 거둔다.",
+    "논에서 거둔 식량을 백성(민가)과 군사가 먹는다. 식량이 바닥나면 민심과 귀족 협력이 크게 떨어진다. 짓기·증축·등용·교역·원정 같은 일을 할 때마다 일꾼과 군사를 먹일 식량도 든다(카드에 적혀 있다). 창고 하나마다 식량을 40 더 쌓아 둘 수 있다.",
+    "창고와 제방은 따로 짓지 않고, 지은 논을 눌러 논 안에 들인다. 제방은 강가 논에만 쌓을 수 있다. 민가를 지으면 민심과 세금이 늘어난다. 민가 1채마다 건물을 3채까지 지을 수 있다(도로·민가는 세지 않는다).",
+    "건물은 왕궁과 이어진 도로에 맞닿아 있어야 일한다(망루·제방은 도로가 없어도 된다). 끊긴 건물 위에는 빨간 느낌표가 뜨고 유지비만 든다. 도로를 따라 일꾼들이 오간다.",
+    "왕궁 둘레 두 칸(금빛 점선)에 귀족 저택·절·군영·망루·창고·금공방을 지으면 효과가 더 붙는다.",
+    "맞닿게(대각선 포함) 지으면 짝 효과가 나는 건물들이 있다: 논+제방, 논+창고, 군영+망루, 절+귀족 저택, 벽돌 가마+나루, 금공방+벽돌 가마, 절+절. 짝이 맞으면 지도에 금빛 점선이 이어진다.",
+    "인재 창에서 귀족·장수·승려·장인을 등용한다. 해마다 녹봉이 든다. 해명은 군영 1채, 진로는 망루 3채, 늙은 승려는 절이 있어야 등용할 수 있고, 금공방은 장인 다리를 등용해야 지을 수 있다. 513년 왜에 보낸 단양이는 등용하지 않아도 해마다 왜 우호를 지켜 준다.",
+    "사료에 나온 침입 말고도 말갈·고구려 척후·바다 도적이 불쑥 쳐들어온다. 해가 갈수록 세지니 군사를 기르고 망루를 이어 성벽을 쌓아 두거나, 재물을 주어 돌려보낸다.",
+    "원정 창에서 북쪽의 고구려 성을 친다. 되찾을 때마다 웅진 둘레의 땅이 넓어진다. 북쪽은 산성 지대라 언덕이 많고, 맨 끝 줄은 산이라 망루만 세울 수 있다. 망루를 맞닿게 세우면 그 사이에 성벽이 쌓여 방어가 오른다(망루 한 단계 +6, 성벽 한 줄 +8). 출정에는 재정·군사력뿐 아니라 왕권·귀족 협력·민심도 든다. 군영은 군사를 기르지만 민심을 깎는다.",
     "민심이 0이 되면 도성이 무너지고, 왕권이나 귀족 협력이 0이 되면 귀족이 칼을 든다.",
     "나루를 지으면 교역선을 보낼 수 있다. 1단계는 양나라 불교 경전, 2단계부터 왜의 금송, 3단계가 되면 경전 대신 양나라 선진문물을 받아 온다.",
     "523년, 그동안 지은 것과 맺은 관계가 무령왕릉이 된다. 지석에 '붕'을 쓰려면 왕권 100, 오수전을 넣으려면 재정 100, 양나라 작위(영동대장군)를 받으려면 521년에 양나라 우호 80이 있어야 한다."
@@ -958,6 +1159,9 @@ $("tab-build").onclick = () => !busy() && showBuild();
 $("tab-people").onclick = () => !busy() && showPeople();
 $("tab-war").onclick = () => !busy() && showWar();
 $("btn-next").onclick = nextYear;
+$("z-in").onclick = () => zoomBy(1 / 1.3);
+$("z-out").onclick = () => zoomBy(1.3);
+$("z-home").onclick = () => { VIEW = null; applyView(); };
 $("btn-help").onclick = () => !busy() && help();
 $("btn-guide").onclick = () => !busy() && guide();
 function guide() {
@@ -966,10 +1170,11 @@ function guide() {
   show({ when: "가이드", title: "건물 보너스",
     html: `<p>왕궁에서 두 칸 안(지도의 금빛 점선)에 지으면 붙는 효과</p>
       <table class="guide-t"><tr><th>건물</th><th>추가 효과</th><th>까닭</th></tr>${court}</table>
-      <p>맞닿게 지으면 붙는 짝 효과 (지도에 금빛 점선이 이어진다)</p>
+      <p>맞닿게(대각선 포함) 지으면 붙는 짝 효과 (지도에 금빛 점선이 이어진다)</p>
       <table class="guide-t"><tr><th>짝</th><th>추가 효과</th><th>까닭</th></tr>${combo}</table>
+      <p>논에 들이는 시설: 창고(재정 +1 · 민심 +1, 흉년에 창고를 열 수 있음), 제방(강가 논만, 재정 +1 · 민심 +1, 큰물을 막음).</p>
       <p>그 밖에: 논은 금강 바로 옆이면 재정 +2. 건물 효과는 단계만큼 커지지만, 보너스는 단계와 상관없이 한 번만 붙는다.</p>
-      <p>민심이 90 이상이면 <b>태평성대</b>가 되어 모든 생산이 1.3배가 되고 백성이 떠나지 않는다. 90 아래로 떨어지면 끝난다.</p>` });
+      <p>민심이 90 이상이면 <b>태평성대</b>가 되어 모든 생산이 1.3배가 되지만, 민심은 절반만 오른다. 90 아래로 떨어지면 끝난다.</p>` });
 }
 $("btn-new").onclick = () => { if (!busy()) newGame(); };
 function startFromTitle() {
@@ -980,7 +1185,9 @@ function startFromTitle() {
 $("title").onclick = startFromTitle;
 $("title").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startFromTitle(); } };
 S = load() || fresh(); paintAll();
-window.addEventListener("resize", paintMap);
+window.addEventListener("resize", () => { VIEW = null; paintMap(); });
+// 아래 창이 열리고 닫혀 지도 칸 크기가 바뀌면 배율을 그대로 두고 화면 비율만 다시 맞춘다
+if (typeof ResizeObserver === "function") new ResizeObserver(() => applyView()).observe(document.querySelector(".mapwrap"));
 </script>
 
 </body>
