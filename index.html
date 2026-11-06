@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#121417">
-<title>사마 웅진경영</title>
-<meta name="description" content="사마(斯麻) 웅진경영 — 무령왕 23년을 23턴으로, 웅진에 건물을 짓고 인재를 모아 나라를 다시 세우는 역사 경영 게임">
+<title>갱위강국</title>
+<meta name="description" content="갱위강국(更爲强國) — 다시 강한 나라. 무령왕 23년을 23턴으로, 웅진에 건물을 짓고 인재를 모아 나라를 다시 세우는 역사 경영 게임">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Gowun+Batang:wght@400;700&family=Noto+Serif+TC:wght@500;700&display=swap">
 <style>
@@ -114,6 +114,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
 /* 첫 화면 */
 .title { position: fixed; inset: 0; z-index: 40; cursor: pointer; background: #07080a; }
+/* 처음 켜면 인트로 영상을 먼저 보여 준다. 끝나거나 건너뛰면 제목 화면으로 */
+.intro { position: fixed; inset: 0; z-index: 60; background: #000; }
+.intro[hidden] { display: none; }
+.intro video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.introbtn { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 14px; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.45); color: #f4efe4; font: 600 .85rem var(--f-display); letter-spacing: .05em; cursor: pointer; }
+.introbtn.skip { left: auto; right: 14px; }
+.introplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 16px 28px; border-radius: 999px; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.55); color: #f4efe4; font: 700 1.1rem var(--f-display); cursor: pointer; }
+.introplay[hidden], .introbtn[hidden] { display: none; }
 .title[hidden] { display: none; }
 .title img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.7); }
 .title .mast { position: absolute; left: 0; right: 0; bottom: 12vh; text-align: center; padding: 0 16px; }
@@ -169,6 +177,8 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .srcbox[hidden] { display: none; }
 .srcbox .ko { font-size: .86rem; }
 .srcbox .from { font-size: .72rem; color: var(--dim); }
+/* 언덕·산 그림의 풀빛을 새 잔디(차분한 올리브색)에 맞춰 누른다 */
+.mute { filter: saturate(.62) brightness(.94) sepia(.12); }
 </style>
 </head>
 <body>
@@ -176,7 +186,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 <div class="app">
   <div class="top">
     <div class="yearbar">
-      <h1 class="logo"><span>斯麻</span><b>웅진경영</b></h1>
+      <h1 class="logo"><span>更爲强國</span><b>갱위강국</b></h1>
       <div class="year" id="year"></div>
       <button class="ghost" id="btn-guide" type="button">가이드</button>
       <button class="ghost" id="btn-help" type="button">도움말</button>
@@ -202,9 +212,15 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   </div>
 </div>
 <div class="modal" id="modal" hidden><div class="ev" id="ev"></div></div>
+<div class="intro" id="intro">
+  <video id="introVid" src="assets/intro.mp4" playsinline preload="auto"></video>
+  <button class="introbtn" id="introSound" type="button" hidden>소리 켜기</button>
+  <button class="introbtn skip" id="introSkip" type="button">건너뛰기 ▶</button>
+  <button class="introplay" id="introPlay" type="button" hidden>▶ 영상 보기</button>
+</div>
 <div class="title" id="title" role="button" tabindex="0" aria-label="게임 시작">
   <img src="assets/bg_tomb.webp" alt="">
-  <div class="mast"><div class="han" lang="zh-Hant">斯麻</div><div class="ko">웅진경영 · 무령왕의 스물세 해</div><div class="tap">화면을 누르면 시작합니다</div></div>
+  <div class="mast"><div class="han" lang="zh-Hant">更爲强國</div><div class="ko" style="word-break:keep-all">갱위강국 · 다시 강한 나라<br>무령왕의 스물세 해</div><div class="tap">화면을 누르면 시작합니다</div></div>
 </div>
 
 <script>
@@ -329,6 +345,8 @@ const used = () => S.map.flat().filter(t => t && !FREE.has(t.b)).length;
 const room = () => tiles("house") * 3;
 const tiles = b => S.map.flat().filter(t => t?.b === b).length;
 const count = b => { REACH = null; let n = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t?.b === b && works(x, y)) n += t.lv; } return n; };
+/* 난이도 손잡이: 해마다 저절로 줄어드는 양, 식량이 바닥났을 때의 벌, 돌발 침입 */
+const DIFF = { decay: { people: -2, nobles: -1, army: -2, power: -2 }, short: { people: -8, nobles: -2 }, raidChance: .22, raidBase: 18, raidGrow: 1.4 };   // 10단계 중 4~4.5 정도
 function income() {
   REACH = null;
   const sum = {};
@@ -339,7 +357,7 @@ function income() {
   // 먹는 입: 기본 3, 민가 한 단계마다 2, 군사 15마다 1
   let mouths = 3; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = S.map[y][x]; if (t?.b === "house") mouths += 2 * t.lv; }
   sum.food = (sum.food || 0) - mouths - Math.floor(S.army / 15);
-  sum.people = (sum.people || 0) - 3; sum.nobles = (sum.nobles || 0) - 2; sum.army = (sum.army || 0) - 3; sum.power = (sum.power || 0) - 2;
+  for (const k in DIFF.decay) sum[k] = (sum[k] || 0) + DIFF.decay[k];
   // 태평성대: 민심이 가득 차면 생산이 1.5배, 백성이 떠나지 않는다
   if (S.peace) {
     for (const k of ["food", "gold", "army", "yang", "wa", "nobles", "power"]) if (sum[k] > 0) sum[k] = Math.round(sum[k] * 1.3);
@@ -367,7 +385,7 @@ const TARGETS = {
   hanseong: { name: "한성 옛 땅", from: 518, str: 90, ring: 3, reward: { power: 15, people: 10 }, desc: "475년에 빼앗긴 옛 도읍. 무령왕은 523년 봄 몸소 한성에 다녀왔다." }
 };
 /* 출정할 때마다 드는 것: 장정을 뽑고(민심), 귀족 사병을 빌리고(귀족), 왕이 위신을 건다(왕권) */
-const WAR_COST = { gold: -10, food: -8, army: -10, power: -3, nobles: -4, people: -5 };
+const WAR_COST = { gold: -10, food: -6, army: -10, power: -3, nobles: -4, people: -5 };
 const warReady = () => Object.keys(WAR_COST).every(k => k === "food" ? S.food >= -WAR_COST.food : S[k] > -WAR_COST[k]);
 /* 방어: 망루 한 단계마다 6, 맞닿은 망루 사이에 쌓인 성벽 한 줄마다 8 */
 const TOWER_DEF = 6, LINK_DEF = 8;
@@ -534,7 +552,7 @@ function drawBuilding(b, cx, cy, lv) {
 }
 /* 지형 도트 그림 (assets/t_*.png, 너비 256) */
 // 강 타일은 이어 붙이면 칸마다 둑이 생겨 끊겨 보이므로 언덕만 쓴다
-const TILE = { hill: [229, 87], land: [172, 74], fog: [188, 86], mountain: [238, 128] };
+const TILE = { hill: [229, 87], land: [166, 77], fog: [188, 86], mountain: [238, 128] };
 const TFILE = { hill: "hill", land: "grass", fog: "fog", mountain: "mountain" };
 Object.values(TFILE).forEach(k => { const im = new Image(); im.src = `assets/t_${k}.png`; });
 const tileImg = (f, [H, ly], cx, cy, cls = "") => `<image class="${cls}" href="assets/t_${f}.png" x="${cx - TW / 2}" y="${cy - ly * SY}" width="${TW}" height="${H * SY}" preserveAspectRatio="none"/>`;
@@ -607,7 +625,10 @@ function chibi(kind) {
     + L.hat() + `</g>`;
 }
 let WALK = [], walkKey = "";
-function roadNbrs(x, y) { return N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => S.map[b]?.[a]?.b === "road" && REACH?.has(a + "," + b)); }
+/* 사람들은 도로와 왕궁 칸을 오간다. 왕궁에 들어가면 문 안으로 사라졌다가 다른 쪽 도로로 나온다 */
+const isPalace = (x, y) => S.map[y]?.[x]?.b === "palace";
+const walkable = (x, y) => isPalace(x, y) || (S.map[y]?.[x]?.b === "road" && REACH?.has(x + "," + y));
+function roadNbrs(x, y) { return N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => walkable(a, b)); }
 function syncWalkers() {
   REACH = REACH || reach();
   const want = [];
@@ -622,7 +643,7 @@ function syncWalkers() {
     const old = new Map(WALK.map(w => [w.id, w]));
     WALK = want.map(w => {
       const o = old.get(w.id);
-      if (o && o.kind === w.kind && S.map[o.ty]?.[o.tx]?.b === "road") return o;
+      if (o && o.kind === w.kind && walkable(o.tx, o.ty)) return o;
       return { id: w.id, kind: w.kind, fx: w.start[0], fy: w.start[1], tx: w.start[0], ty: w.start[1], t: 1, speed: .45 + Math.random() * .25, wait: Math.random() * 2 };
     });
     walkKey = key;
@@ -653,6 +674,7 @@ function drawWalkers() {
     const x = ax + (bx - ax) * t, y = (ay - groundH(w.fx, w.fy)) + ((by - groundH(w.tx, w.ty)) - (ay - groundH(w.fx, w.fy))) * t;
     const bob = w.wait > 0 ? 0 : Math.abs(Math.sin(clock * 9 + i)) * -1.2;
     const flip = bx < ax ? -1 : 1;
+    el.setAttribute("opacity", isPalace(w.tx, w.ty) ? Math.max(0, 1 - t * 1.6) : isPalace(w.fx, w.fy) ? Math.min(1, Math.max(0, t * 1.6 - .6)) : 1);
     el.setAttribute("transform", `translate(${x + (i % 3 - 1) * 2} ${y + bob}) scale(${flip * .9} .9)`);
   });
 }
@@ -674,7 +696,7 @@ function paintMap() {
   order.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
   for (const [x, y] of order) {
     const [cx, cy] = iso(x, y), ter = terrain(x, y), open = opened(x, y);
-    const top = ter === "river" ? ((x + y) % 2 ? "#2a8fb5" : "#2c97bd") : ter === "hill" || ter === "mountain" ? "#6b5a43" : ((x + y) % 2 ? "#6f9a3c" : "#76a242");
+    const top = ter === "river" ? ((x + y) % 2 ? "#2a8fb5" : "#2c97bd") : ter === "hill" || ter === "mountain" ? "#6b5a43" : ((x + y) % 2 ? "#6a7740" : "#707d44");
     const side = ter === "river" ? "#1d5d78" : ter === "hill" || ter === "mountain" ? "#4c3f2f" : "#7a5634";
     const h = GROUND_H[ter];
     const d = diamond(cx, cy, 1, h), g = diamond(cx, cy, 1);
@@ -683,7 +705,7 @@ function paintMap() {
       + `<polygon class="face" points="${P(d)}" fill="${top}" stroke="rgba(0,0,0,.25)"/>`
       + (ter === "river" ? `<path d="M${cx - 16} ${cy + 2} q8 -4 16 0 t16 0" stroke="#bfe8f5" stroke-width="1.6" fill="none" opacity=".7"/><path d="M${cx - 6} ${cy - 6} h8" stroke="#e8f8ff" stroke-width="1.4" opacity=".6"/>` : "")
       // 산에 망루를 세우면 봉우리 대신 언덕 그림 위에 올린다
-      + (open && TILE[ter] ? (ter === "mountain" && S.map[y][x] ? tileImg("hill", TILE.hill, cx, cy - h) : tileImg(TFILE[ter], TILE[ter], cx, cy - h)) : "")
+      + (open && TILE[ter] ? (ter === "mountain" && S.map[y][x] ? tileImg("hill", TILE.hill, cx, cy - h, "mute") : tileImg(TFILE[ter], TILE[ter], cx, cy - h, ter === "land" ? "" : "mute")) : "")
       + (!open && ter !== "river" ? tileImg("fog", TILE.fog, cx, cy - h, "lockfog") : "")
       + (!open && ter === "river" ? `<polygon class="lockfog" points="${P(d)}" fill="#0b0d10" opacity=".6"/>` : "")
       + `</g>`;
@@ -859,7 +881,7 @@ function trade(k, x, y) {
   tapTile(x, y);
 }
 /* 무엇을 하든 일꾼과 군사를 먹여야 한다: 행동마다 드는 식량 */
-const FOOD = { build: 2, up: 3, addon: 2, hire: 4, trade: 2, war: 8 };
+const FOOD = { build: 1, up: 2, addon: 2, hire: 3, trade: 2, war: 6 };
 const foodNeed = (k, b) => k === "build" && b === "road" ? 0 : FOOD[k];
 const eat = n => { S.food = Math.max(0, S.food - n); };
 function after(msg) { S.log = msg; S.last = {}; save(); paintAll(); }
@@ -881,7 +903,7 @@ function showPeople() {
 function showWar() {
   if (tab === "war") return openSheet("", null);
   const list = Object.keys(TARGETS).filter(k => year() >= TARGETS[k].from);
-  openSheet(`<h3>북방 원정<small>원정력 ${warPower()} · 한 해에 한 번</small></h3><div class="eff">원정력은 군사력에 장수와 망루의 힘을 더한 값이다. 출정할 때마다 재정 10, 식량 8(군량), 군사력 10, 왕권 3, 귀족 협력 4, 민심 5가 든다. 하나라도 모자라면 출정할 수 없다.</div><div class="grid2">${list.map(k => {
+  openSheet(`<h3>북방 원정<small>원정력 ${warPower()} · 한 해에 한 번</small></h3><div class="eff">원정력은 군사력에 장수와 망루의 힘을 더한 값이다. 출정할 때마다 재정 10, 식량 6(군량), 군사력 10, 왕권 3, 귀족 협력 4, 민심 5가 든다. 하나라도 모자라면 출정할 수 없다.</div><div class="grid2">${list.map(k => {
     const t = TARGETS[k], done = S.won.includes(k), c = Math.round(chance(t.str) * 100);
     return `<button class="card" data-w="${k}" type="button"${done || S.warDone || !warReady() ? " disabled" : ""}><b>${esc(t.name)}</b><span class="cost">${done ? "되찾음" : `방어 ${t.str} · 승산 ${c}%`}</span><span class="eff">${esc(t.desc)}</span></button>`;
   }).join("")}${list.length ? "" : `<div class="eff">아직 칠 만한 성이 없다.</div>`}</div>`, "war");
@@ -941,13 +963,11 @@ function nextModal() {
 const RAIDS = { 503: { who: "말갈", str: 40, place: "마수책" }, 506: { who: "말갈", str: 48, place: "고목성" }, 507: { who: "고구려·말갈", str: 58, place: "한성 북쪽" }, 512: { who: "고구려", str: 66, place: "가불성·원산성" } };
 const HISTORY = {
   501: () => ({ bg: "march", who: "baekga", when: "501년 정월 · 가림성", title: "백가의 반란",
-    text: ["선왕 동성을 죽인 좌평 백가가 가림성에 웅거해 반란을 일으켰다. 즉위한 지 한 달, 새 왕이 어떤 사람인지 이 일 하나로 정해진다."],
+    text: ["선왕 동성을 죽인 좌평 백가가 가림성에 웅거해 반란을 일으켰다. 즉위한 지 한 달 된 새 왕은 몸소 군사를 이끌고 우두성까지 나아가, 한솔 해명에게 토벌을 명했다.",
+      "백가는 성문을 열고 나와 항복했다. 왕은 그의 목을 베어 백강에 던졌다. 웅진의 귀족들은 새 왕이 어떤 사람인지 알게 되었다."],
     src: ["삼국사기", "春正月 佐平苩加據加林城叛 王帥兵馬至牛頭城 命扦率解明討之 苩加出降 王斬之 投於白江", "봄 정월, 좌평 백가가 가림성을 거점으로 반란을 일으켰다. 왕이 군사와 말을 거느리고 우두성에 이르러 한솔 해명에게 토벌을 명하였다. 백가가 나와 항복하자, 왕이 그의 목을 베어 백강에 던졌다.", "『삼국사기』 권26 백제본기 제4 무령왕 원년(501) 정월 · 국사편찬위원회 한국사데이터베이스"],
-    choices: [
-      { label: "몸소 우두성까지 나아가 토벌한다", sub: "사료 속 무령왕 · 군사력이 받쳐 줘야 한다", need: () => S.army >= 30, needText: "군사력이 모자라다", eff: { power: 15, gold: 25, army: -5, nobles: -5 },
-        res: "백가는 성문을 열고 나와 항복했다. 왕은 그의 목을 베어 백강에 던졌다. 백가의 재물은 나라 창고로 들어왔다." },
-      { label: "항복을 받고 목숨은 살려 준다", eff: { nobles: 10, power: -10 }, res: "백씨 사람들은 고개를 숙였다. 그러나 다른 귀족들은 반역해도 살 수 있다는 것을 배웠다." }
-    ] }),
+    note: "왕권과 재정이 오르고, 귀족들은 숨을 죽였다.",
+    choices: [{ label: "스물세 해를 시작한다", eff: { power: 15, gold: 25, army: -5, nobles: -5 } }] }),
   502: () => ({ bg: "field", when: "502년 봄", title: "굶주림과 역병", text: ["봄에 백성이 굶주리고 역병이 돌았다."],
     choices: countAddon("granary")
       ? [{ label: "창고를 열어 나눠 준다", sub: "식량 15", need: () => S.food >= 15, needText: "식량이 모자라다", eff: { people: 10, food: -15 }, res: "창고 문이 열리던 날, 성문 앞에 끝없는 줄이 섰다." }, { label: "버틴다", eff: { people: -10 }, res: "길가에 굶어 죽은 사람이 늘었다." }]
@@ -1018,7 +1038,7 @@ const BORDER = [
 function borderRaid() {
   const pool = BORDER.filter(b => !b.harbor || tiles("harbor"));
   const b = pool[Math.floor(Math.random() * pool.length)];
-  const r = { who: b.who, place: b.place, str: 20 + Math.floor((year() - 501) * 1.5) + Math.floor(Math.random() * 10), soft: true };
+  const r = { who: b.who, place: b.place, str: DIFF.raidBase + Math.floor((year() - 501) * DIFF.raidGrow) + Math.floor(Math.random() * 10), soft: true };
   const def = defense();
   return { bg: "march", when: `${year()}년 · ${b.place} · 돌발`, title: `${b.who}의 침입`, text: [b.text],
     note: `방어 ${def} · 적 ${r.str}. 방어가 모자라면 마을이 불타고 건물 하나가 상한다.`,
@@ -1052,7 +1072,7 @@ function nextYear() {
   const inc = income();
   const short = S.food + (inc.food || 0) < 0;
   const d = apply(inc);
-  if (short) { const d2 = apply({ people: -10, nobles: -3 }); for (const k in d2) d[k] = (d[k] || 0) + d2[k]; }
+  if (short) { const d2 = apply(DIFF.short); for (const k in d2) d[k] = (d[k] || 0) + d2[k]; }
   S.last = d;
   const y = year();
   const queue = [{ bg: short ? "field" : null, when: `${y}년 결산`, title: short ? `무령왕 ${S.turn + 1}년 · 식량이 바닥났다` : `무령왕 ${S.turn + 1}년이 저물다`,
@@ -1067,7 +1087,7 @@ function nextYear() {
   if (S.peace && !wasPeace) queue.push({ bg: "river", when: `${ny}년`, title: "태평성대", text: ["백성들이 배불리 먹고 노래를 부른다. 웅진의 들판마다 풍년이 들었다. 민심이 90 이상인 동안 모든 생산이 1.3배가 되지만, 민심은 절반만 오른다."], note: "민심이 90 아래로 떨어지면 태평성대가 끝난다." });
   if (!S.peace && wasPeace) queue.push({ bg: "field", when: `${ny}년`, title: "태평성대가 저물다", text: ["민심이 흔들리기 시작했다. 풍년의 노래가 그쳤다."] });
   if (RAIDS[ny]) queue.push(raid(RAIDS[ny]));
-  else if (ny > 502 && Math.random() < .25) queue.push(borderRaid());
+  else if (ny > 502 && Math.random() < DIFF.raidChance) queue.push(borderRaid());
   if (HISTORY[ny]) queue.push(HISTORY[ny]());
   else if (!RAIDS[ny] && Math.random() < .55) queue.push(RANDOM[Math.floor(Math.random() * RANDOM.length)]());
   S.log = `${ny}년이 밝았다.`;
@@ -1130,7 +1150,7 @@ function tombEnd() {
 
 /* ================= 도움말 · 시작 ================= */
 function help() {
-  show({ bg: "river", when: "웅진경영", title: "하는 법", text: [
+  show({ bg: "river", when: "갱위강국", title: "하는 법", text: [
     "501년부터 523년까지, 한 해가 한 턴이다. 스물세 턴 동안 웅진을 다시 세운다.",
     "지도의 빈 땅을 눌러 건물을 짓는다. 지은 건물을 다시 누르면 증축하거나 허문다. 논은 금강 옆에서 더 거둔다.",
     "논에서 거둔 식량을 백성(민가)과 군사가 먹는다. 식량이 바닥나면 민심과 귀족 협력이 크게 떨어진다. 짓기·증축·등용·교역·원정 같은 일을 할 때마다 일꾼과 군사를 먹일 식량도 든다(카드에 적혀 있다). 창고 하나마다 식량을 40 더 쌓아 둘 수 있다.",
@@ -1183,6 +1203,28 @@ function startFromTitle() {
   if (saved && saved.turn < TURNS) { S = saved; paintAll(); } else newGame();
 }
 $("title").onclick = startFromTitle;
+// 인트로 영상: 켤 때마다 처음부터 재생한다. 소리와 함께 재생을 시도하고, 막히면 소리 없이,
+// 그것마저 막히면(저전력 모드 등) 건너뛰지 말고 "영상 보기" 버튼을 띄운다
+(function intro() {
+  const box = $("intro"), v = $("introVid"), sound = $("introSound"), playBtn = $("introPlay");
+  const done = () => { box.hidden = true; v.pause(); $("title").focus(); };
+  const play = () => {
+    playBtn.hidden = true;
+    v.muted = false;
+    v.play().catch(() => {
+      v.muted = true; sound.hidden = false;
+      v.play().catch(() => { playBtn.hidden = false; });
+    });
+  };
+  const start = () => { box.hidden = false; sound.hidden = true; try { v.currentTime = 0; } catch {} play(); };
+  $("introSkip").onclick = done;
+  playBtn.onclick = play;
+  v.onended = done; v.onerror = done;
+  sound.onclick = () => { v.muted = false; v.play(); sound.hidden = true; };
+  // 휴대폰에서 앱을 껐다 켜면 페이지가 저장된 상태로 되살아나기도 한다. 그때도 인트로부터
+  window.addEventListener("pageshow", e => { if (e.persisted) start(); });
+  start();
+})();
 $("title").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startFromTitle(); } };
 S = load() || fresh(); paintAll();
 window.addEventListener("resize", () => { VIEW = null; paintMap(); });
